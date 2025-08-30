@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: var(--color-light-bg); /* Usar variable CSS para el fondo claro */
+  color: var(--color-dark-text); /* Usar variable CSS para el texto oscuro */
+  font-family: 'Inter', sans-serif;
+}

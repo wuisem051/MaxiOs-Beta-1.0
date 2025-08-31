@@ -1,7 +1,7 @@
 [build]
   command = "npm run build"
   publish = "build"
-  environment = { NODE_VERSION = "18", REACT_APP_FIREBASE_API_KEY = "AIzaSyAx8f05QelefYQKKcaLhBFHZz5uQcLA768" }
+  environment = { NODE_VERSION = "18" }
 [[redirects]]
   from = "/*"
   to = "/index.html"

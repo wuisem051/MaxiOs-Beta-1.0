@@ -1,20 +1,32 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useAuth } from '../AuthContext';
-import { useNavigate, Link, Routes, Route, useLocation, useMatch, useResolvedPath } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useContext, useMemo } from 'react'; // Importar useContext y useMemo
+import { useAuth } from '../context/AuthContext';
+import { ThemeContext } from '../context/ThemeContext'; // Importar ThemeContext
+import { useNavigate, Routes, Route, useLocation } from 'react-router-dom';
 import { Bar } from 'react-chartjs-2';
 import Chart from 'chart.js/auto';
 import { countMinersByUser } from '../utils/miners';
-import { db, auth } from '../firebase/firebase'; // Importar db y auth desde firebase.js
+import { db, auth } from '../services/firebase'; // Importar db y auth desde firebase.js
 import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, setDoc, addDoc, deleteDoc, getDocs, orderBy } from 'firebase/firestore';
 import { updateEmail, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import UserPoolArbitrage from '../components/UserPoolArbitrage'; // Importar UserPoolArbitrage
+import Sidebar from '../components/layout/Sidebar'; // Importar Sidebar
+import MainContent from '../components/MainContent'; // Importar MainContent
+import ErrorMessage from '../components/ErrorMessage'; // Importar ErrorMessage
+import styles from './UserPanel.module.css'; // Importar estilos CSS Modules
+import useFormValidation from '../hooks/useFormValidation'; // Importar useFormValidation
+import { useError } from '../context/ErrorContext'; // Importar useError
 
 // Componentes de las sub-secciones
-const DashboardContent = ({ userMiners, chartData, userBalances, paymentRate, btcToUsdRate, totalHashratePool, poolCommission, paymentsHistory, withdrawalsHistory }) => {
-  const totalHashrate = userMiners.reduce((sum, miner) => sum + (miner.currentHashrate || 0), 0);
-  const estimatedDailyUSD = totalHashrate * paymentRate;
-  const estimatedDailyBTC = btcToUsdRate > 0 ? estimatedDailyUSD / btcToUsdRate : 0;
-  const userPercentageOfPool = totalHashratePool > 0 ? (totalHashrate / totalHashratePool) * 100 : 0;
+const DashboardContent = ({ userMiners, chartData, userBalances, paymentRate, btcToUsdRate, totalHashratePool, poolCommission, paymentsHistory, withdrawalsHistory, styles, totalHashrate, estimatedDailyUSD }) => {
+  const { darkMode } = useContext(ThemeContext); // Usar ThemeContext
+
+  const estimatedDailyBTC = useMemo(() => {
+    return btcToUsdRate > 0 ? estimatedDailyUSD / btcToUsdRate : 0;
+  }, [estimatedDailyUSD, btcToUsdRate]);
+
+  const userPercentageOfPool = useMemo(() => {
+    return totalHashratePool > 0 ? (totalHashrate / totalHashratePool) * 100 : 0;
+  }, [totalHashrate, totalHashratePool]);
 
   // Obtener el último pago o retiro
   const lastPayment = paymentsHistory.length > 0 ? paymentsHistory[0] : null;
@@ -34,69 +46,69 @@ const DashboardContent = ({ userMiners, chartData, userBalances, paymentRate, bt
   }
 
   return (
-    <div className="p-2">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
+    <div className={styles.dashboardContent}>
+      <div className={styles.statsGrid}>
         {/* Tu Hashrate */}
-        <div className="bg-light_card p-2 rounded-lg shadow-md flex flex-col items-center justify-center border border-gray_border">
-          <h3 className="text-sm text-gray_text mb-1">Tu Hashrate</h3>
-          <p className="text-2xl font-bold text-blue_link">{totalHashrate.toFixed(2)} TH/s</p>
-          <div className="w-10 h-10 rounded-full bg-blue-100 mt-2 flex items-center justify-center">
+        <div className={`${styles.statCard} ${darkMode ? styles.dark : styles.light}`}>
+          <h3 className={styles.statTitle}>Tu Hashrate</h3>
+          <p className={styles.statValueBlue}>{totalHashrate.toFixed(2)} TH/s</p>
+          <div className={styles.statIconBlue}>
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue_link" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
           </div>
         </div>
         {/* Ganancia Estimada Diaria */}
-        <div className="bg-light_card p-2 rounded-lg shadow-md flex flex-col items-center justify-center border border-gray_border">
-          <h3 className="text-sm text-gray_text mb-1">Ganancia Estimada Diaria</h3>
-          <p className="text-2xl font-bold text-green_check">${estimatedDailyUSD.toFixed(2)}</p>
-          <div className="w-10 h-10 rounded-full bg-green-100 mt-2 flex items-center justify-center">
+        <div className={`${styles.statCard} ${darkMode ? styles.dark : styles.light}`}>
+          <h3 className={styles.statTitle}>Ganancia Estimada Diaria</h3>
+          <p className={styles.statValueGreen}>${estimatedDailyUSD.toFixed(2)}</p>
+          <div className={styles.statIconGreen}>
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green_check" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V3a1 1 0 00-1-1H4a1 1 0 00-1 1v18a1 1 0 001 1h12a1 1 0 001-1v-5m-1-10v4m-4 0h4"/></svg>
           </div>
         </div>
         {/* Tasa de Pago */}
-        <div className="bg-light_card p-2 rounded-lg shadow-md flex flex-col items-center justify-center border border-gray_border">
-          <h3 className="text-sm text-gray_text mb-1">Tasa de Pago</h3>
-          <p className="text-2xl font-bold text-accent">${paymentRate.toFixed(2)}/TH/s</p>
-          <div className="w-10 h-10 rounded-full bg-yellow-100 mt-2 flex items-center justify-center">
+        <div className={`${styles.statCard} ${darkMode ? styles.dark : styles.light}`}>
+          <h3 className={styles.statTitle}>Tasa de Pago</h3>
+          <p className={styles.statValueAccent}>${paymentRate.toFixed(2)}/TH/s</p>
+          <div className={styles.statIconAccent}>
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
           </div>
         </div>
         {/* Balances */}
-        <div className="bg-light_card p-2 rounded-lg shadow-md flex flex-col items-center justify-center border border-gray_border">
-          <h3 className="text-sm text-gray_text mb-1">Balances</h3>
-          <p className="text-xl font-bold text-purple-500">${(userBalances.balanceUSD || 0).toFixed(2)} USD</p>
-          <p className="text-sm text-gray_text">{(userBalances.balanceBTC || 0).toFixed(8)} BTC</p>
-          <p className="text-sm text-gray_text">{(userBalances.balanceLTC || 0).toFixed(8)} LTC</p>
-          <p className="text-sm text-gray_text">{(userBalances.balanceDOGE || 0).toFixed(8)} DOGE</p>
-          <div className="w-10 h-10 rounded-full bg-purple-100 mt-2 flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+        <div className={`${styles.statCard} ${darkMode ? styles.dark : styles.light}`}>
+          <h3 className={styles.statTitle}>Balances</h3>
+          <p className={styles.statValueGreen}>${(userBalances.balanceUSD || 0).toFixed(2)} USD</p>
+          <p className={styles.statSubValue}>{(userBalances.balanceBTC || 0).toFixed(8)} BTC</p>
+          <p className={styles.statSubValue}>{(userBalances.balanceLTC || 0).toFixed(8)} LTC</p>
+          <p className={styles.statSubValue}>{(userBalances.balanceDOGE || 0).toFixed(8)} DOGE</p>
+          <div className={styles.statIconGreen}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green_check" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+      <div className={styles.chartAndStatsGrid}>
         {/* Rendimiento Histórico */}
-        <div className="bg-light_card p-2 rounded-lg shadow-md border border-gray_border">
-          <h3 className="text-base font-semibold text-dark_text mb-2">Rendimiento Histórico</h3>
-          <div className="h-48">
+        <div className={`${styles.chartCard} ${darkMode ? styles.dark : styles.light}`}>
+          <h3 className={styles.chartTitle}>Rendimiento Histórico</h3>
+          <div className={styles.chartContainer}>
             {userMiners.length > 0 ? (
               <Bar data={chartData} options={{ maintainAspectRatio: false }} />
             ) : (
-              <p className="text-gray_text text-center py-6 text-xs">No hay datos de rendimiento disponibles.</p>
+              <p className={styles.noDataText}>No hay datos de rendimiento disponibles.</p>
             )}
           </div>
         </div>
 
         {/* Estadísticas de la Pool */}
-        <div className="bg-light_card p-2 rounded-lg shadow-md border border-gray_border">
-          <h3 className="text-base font-semibold text-dark_text mb-2">Estadísticas de la Pool</h3>
-          <div className="space-y-1 text-xs">
-            <div className="flex justify-between text-gray_text">
+        <div className={`${styles.statsCard} ${darkMode ? styles.dark : styles.light}`}>
+          <h3 className={styles.statsTitle}>Estadísticas de la Pool</h3>
+          <div className={styles.statsList}>
+            <div className={styles.statsItem}>
               <span>Comisión de la Pool:</span>
-              <span className="font-semibold text-red_error">{poolCommission.toFixed(1)}%</span>
+              <span className={styles.statsValueRed}>{poolCommission.toFixed(1)}%</span>
             </div>
-            <div className="flex justify-between text-gray_text">
+            <div className={styles.statsItem}>
               <span>Última Transacción:</span>
-              <span className="font-semibold text-green_check">{lastTransactionInfo}</span>
+              <span className={styles.statsValueGreen}>{lastTransactionInfo}</span>
             </div>
           </div>
         </div>
@@ -105,23 +117,47 @@ const DashboardContent = ({ userMiners, chartData, userBalances, paymentRate, bt
   );
 };
 
-const MiningInfoContent = ({ currentUser, userMiners, setUserMiners }) => {
+const MiningInfoContent = ({ currentUser, userMiners, setUserMiners, styles }) => {
+  const { darkMode } = useContext(ThemeContext); // Usar ThemeContext
+  const { showError, showSuccess } = useError(); // Usar el contexto de errores
   const [poolUrl, setPoolUrl] = useState('stratum+tcp://bitcoinpool.com:4444');
   const [port, setPort] = useState('4444');
   const [defaultWorkerName, setDefaultWorkerName] = useState('worker1');
   const miningPassword = 'x';
-  const [newMinerThs, setNewMinerThs] = useState('');
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false); // Estado de carga
+
+  const initialMinerState = {
+    newMinerThs: '',
+  };
+
+  const validateMinerForm = (values) => {
+    const errors = {};
+    if (!values.newMinerThs) {
+      errors.newMinerThs = 'El poder de minado es requerido.';
+    } else if (isNaN(parseFloat(values.newMinerThs)) || parseFloat(values.newMinerThs) <= 0) {
+      errors.newMinerThs = 'Por favor, introduce una cantidad válida de TH/s.';
+    }
+    return errors;
+  };
+
+  const {
+    values: minerValues,
+    handleChange: handleMinerChange,
+    handleSubmit: handleMinerSubmit,
+    errors: minerErrors,
+    isSubmitting: isMinerSubmitting,
+    setValues: setMinerValues,
+    setErrors: setMinerErrors,
+    setSubmitting: setMinerSubmitting,
+  } = useFormValidation(initialMinerState, validateMinerForm);
 
   const handleCopy = (text) => {
     navigator.clipboard.writeText(text);
+    showSuccess('Copiado al portapapeles!');
   };
 
   useEffect(() => {
     const fetchPoolConfigAndMiners = async () => {
-      setError('');
-      setMessage('');
       try {
         // Cargar configuración del Pool desde Firebase
         const poolConfigRef = doc(db, 'settings', 'poolConfig');
@@ -141,7 +177,7 @@ const MiningInfoContent = ({ currentUser, userMiners, setUserMiners }) => {
             setUserMiners(fetchedMiners);
           }, (err) => {
             console.error("Error fetching mining info from Firebase:", err);
-            setError('Fallo al cargar la información de minería.');
+            showError('Fallo al cargar la información de minería.');
           });
 
           return () => {
@@ -152,23 +188,27 @@ const MiningInfoContent = ({ currentUser, userMiners, setUserMiners }) => {
         }
       } catch (err) {
         console.error("Error fetching mining info:", err);
-        setError('Fallo al cargar la información de minería.');
+        showError('Fallo al cargar la información de minería.');
       }
     };
     fetchPoolConfigAndMiners();
-  }, [currentUser, setUserMiners]);
+  }, [currentUser, setUserMiners, showError]);
 
-  const handleAddMiner = async (e) => {
-    e.preventDefault();
-    setError('');
-    setMessage('');
+  useEffect(() => {
+    if (isMinerSubmitting) {
+      if (Object.keys(minerErrors).length === 0) {
+        handleAddMinerSubmit();
+      }
+      setMinerSubmitting(false);
+    }
+  }, [isMinerSubmitting, minerErrors]);
+
+  const handleAddMinerSubmit = async () => {
+    setIsLoading(true);
 
     if (!currentUser || !currentUser.uid) {
-      setError('Debes iniciar sesión para añadir un minero.');
-      return;
-    }
-    if (isNaN(parseFloat(newMinerThs)) || parseFloat(newMinerThs) <= 0) {
-      setError('Por favor, introduce una cantidad válida de TH/s.');
+      showError('Debes iniciar sesión para añadir un minero.');
+      setIsLoading(false);
       return;
     }
 
@@ -176,107 +216,126 @@ const MiningInfoContent = ({ currentUser, userMiners, setUserMiners }) => {
       const newMinerRef = await addDoc(collection(db, 'miners'), {
         userId: currentUser.uid,
         workerName: defaultWorkerName || `worker-${Math.random().toString(36).substring(2, 8)}`,
-        currentHashrate: parseFloat(newMinerThs),
+        currentHashrate: parseFloat(minerValues.newMinerThs),
         status: 'activo',
         createdAt: new Date(),
       });
 
       console.log("Minero añadido a Firebase:", newMinerRef.id);
-      setMessage('Minero añadido exitosamente!');
-      setNewMinerThs('');
+      showSuccess('Minero añadido exitosamente!');
+      setMinerValues(initialMinerState); // Limpiar el formulario
+      setMinerErrors({}); // Limpiar errores
     } catch (err) {
       console.error("Error al añadir minero:", err);
-      setError(`Fallo al añadir minero: ${err.message}`);
+      showError(`Fallo al añadir minero: ${err.message}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleDeleteMiner = async (minerId) => {
     if (!currentUser || !currentUser.uid) {
-      setError('Debes iniciar sesión para eliminar un minero.');
+      showError('Debes iniciar sesión para eliminar un minero.');
       return;
     }
     if (window.confirm('¿Estás seguro de que quieres eliminar este minero?')) {
-      setError('');
-      setMessage('');
+      setIsLoading(true);
       try {
         await deleteDoc(doc(db, 'miners', minerId));
-        setMessage('Minero eliminado exitosamente.');
+        showSuccess('Minero eliminado exitosamente.');
       } catch (err) {
         console.error("Error al eliminar minero:", err);
-        setError(`Fallo al eliminar minero: ${err.message}`);
+        showError(`Fallo al eliminar minero: ${err.message}`);
+      } finally {
+        setIsLoading(false);
       }
     }
   };
 
   return (
-    <div className="p-2">
-      {error && <div className="bg-red_error text-white p-3 rounded mb-4">{error}</div>}
-      {message && <div className="bg-green_check text-white p-3 rounded mb-4">{message}</div>}
+    <div className={styles.miningInfoContent}>
+      {isLoading && (
+        <div className={styles.loadingOverlay}>
+          <div className={styles.loadingText}>Procesando...</div>
+        </div>
+      )}
+      {/* Los mensajes de error y éxito ahora se manejan globalmente */}
 
       {/* Sección: Añadir Nuevo Minero */}
-      <div className="bg-light_card p-4 rounded-lg shadow-md mb-6 border border-gray_border">
-        <h2 className="text-xl font-bold text-dark_text mb-4 flex items-center">
+      <div className={`${styles.sectionCard} ${darkMode ? styles.dark : styles.light}`}>
+        <h2 className={styles.sectionTitle}>
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
           Añadir Nuevo Minero
         </h2>
-        <form onSubmit={handleAddMiner} className="space-y-4">
+        <form onSubmit={handleMinerSubmit} className={styles.form}>
           <div>
-            <label htmlFor="newMinerThs" className="block text-gray_text text-sm font-medium mb-1">Poder de Minado (TH/s):</label>
+            <label htmlFor="newMinerThs" className={styles.formLabel}>Poder de Minado (TH/s):</label>
             <input
               type="number"
               id="newMinerThs"
-              value={newMinerThs}
-              onChange={(e) => setNewMinerThs(e.target.value)}
+              name="newMinerThs"
+              value={minerValues.newMinerThs}
+              onChange={handleMinerChange}
               step="0.01"
-              className="w-full p-2 bg-gray-100 border border-gray_border rounded-md text-dark_text text-sm focus:outline-none focus:border-blue_link"
+              className={`${styles.formInput} ${darkMode ? styles.darkInput : styles.lightInput}`}
               placeholder="Ej: 100.5"
               required
             />
+            {minerErrors.newMinerThs && <p className={styles.errorText}>{minerErrors.newMinerThs}</p>}
           </div>
           <button
             type="submit"
-            className="w-full bg-blue_link hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:shadow-outline flex items-center justify-center"
+            className={styles.submitButton}
+            disabled={isLoading || isMinerSubmitting}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-            Añadir Minero
+            {isLoading || isMinerSubmitting ? (
+              <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            )}
+            {isLoading || isMinerSubmitting ? 'Añadiendo...' : 'Añadir Minero'}
           </button>
         </form>
       </div>
 
       {/* Sección: Mineros Activos */}
-      <div className="bg-light_card p-4 rounded-lg shadow-md border border-gray_border">
-        <h2 className="text-xl font-bold text-dark_text mb-4 flex items-center">
+      <div className={`${styles.sectionCard} ${darkMode ? styles.dark : styles.light}`}>
+        <h2 className={styles.sectionTitle}>
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2 text-green_check" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/></svg>
           Mis Mineros Activos
         </h2>
         {userMiners.length === 0 ? (
-          <p className="text-gray_text text-center py-8">No tienes mineros activos. ¡Añade uno para empezar a minar!</p>
+          <p className={styles.noMinersText}>No tienes mineros activos. ¡Añade uno para empezar a minar!</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray_border">
-              <thead className="bg-gray-100">
+          <div className={styles.tableContainer}>
+            <table className={styles.table}>
+              <thead className={`${darkMode ? styles.darkTableHead : styles.lightTableHead}`}>
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray_text uppercase tracking-wider">Nombre del Worker</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray_text uppercase tracking-wider">TH/s</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray_text uppercase tracking-wider">Acciones</th>
+                  <th className={styles.tableHeader}>Nombre del Worker</th>
+                  <th className={styles.tableHeader}>TH/s</th>
+                  <th className={styles.tableHeader}>Acciones</th>
                 </tr>
               </thead>
-              <tbody className="bg-light_card divide-y divide-gray_border">
+              <tbody className={`${darkMode ? styles.darkTableBody : styles.lightTableBody}`}>
                 {userMiners.map((miner) => (
                   <tr key={miner.id}>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-dark_text">
-                      <div className="flex items-center">
-                        <input type="text" value={miner.workerName} readOnly className="flex-1 p-1 rounded-l-md bg-gray-100 border border-gray_border text-dark_text text-xs" />
-                        <button onClick={() => handleCopy(miner.workerName)} className="bg-blue_link hover:bg-blue-700 text-white p-1 rounded-r-md text-xs">📋</button>
+                    <td className={styles.tableCell}>
+                      <div className={styles.workerNameContainer}>
+                        <input type="text" value={miner.workerName} readOnly className={`${styles.workerNameInput} ${darkMode ? styles.darkInput : styles.lightInput}`} />
+                        <button onClick={() => handleCopy(miner.workerName)} className={styles.copyButton}>📋</button>
                       </div>
                     </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-dark_text">{(miner.currentHashrate || 0).toFixed(2)}</td>
-                    <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium">
+                    <td className={styles.tableCell}>{(miner.currentHashrate || 0).toFixed(2)}</td>
+                    <td className={styles.tableCellActions}>
                       <button
                         onClick={() => handleDeleteMiner(miner.id)}
-                        className="bg-red_error hover:bg-red-700 text-white px-3 py-1 rounded-md text-xs"
+                        className={styles.deleteButton}
+                        disabled={isLoading}
                       >
-                        Eliminar
+                        {isLoading ? 'Eliminando...' : 'Eliminar'}
                       </button>
                     </td>
                   </tr>
@@ -288,31 +347,31 @@ const MiningInfoContent = ({ currentUser, userMiners, setUserMiners }) => {
       </div>
 
       {/* Instrucciones de Configuración del Pool Estándar */}
-      <div className="bg-gray-100 p-4 rounded-lg shadow-inner mt-6 border border-gray_border">
-        <h3 className="text-lg font-semibold text-dark_text mb-3 flex items-center">
+      <div className={`${styles.poolConfigSection} ${darkMode ? styles.dark : styles.light}`}>
+        <h3 className={styles.poolConfigTitle}>
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue_link" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
           Instrucciones de Conexión (Pool Estándar)
         </h3>
-        <p className="text-gray_text text-sm mb-4">Usa esta información para configurar tu minero con nuestra pool principal.</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <p className={styles.poolConfigDescription}>Usa esta información para configurar tu minero con nuestra pool principal.</p>
+        <div className={styles.poolConfigGrid}>
           <div>
-            <h4 className="font-medium text-dark_text mb-2">Detalles de Conexión:</h4>
-            <ul className="list-disc list-inside text-gray_text text-sm space-y-1">
-              <li>URL del Pool: {poolUrl} <button onClick={() => handleCopy(poolUrl)} className="ml-2 bg-accent hover:bg-yellow-700 text-white p-1 rounded-md text-xs">📋</button></li>
-              <li>Puerto: {port} <button onClick={() => handleCopy(port)} className="ml-2 bg-accent hover:bg-yellow-700 text-white p-1 rounded-md text-xs">📋</button></li>
-              <li>Contraseña de Minería: {miningPassword} <button onClick={() => handleCopy(miningPassword)} className="ml-2 bg-accent hover:bg-yellow-700 text-white p-1 rounded-md text-xs">📋</button></li>
+            <h4 className={styles.poolConfigSubtitle}>Detalles de Conexión:</h4>
+            <ul className={styles.poolConfigList}>
+              <li>URL del Pool: {poolUrl} <button onClick={() => handleCopy(poolUrl)} className={styles.copyButton}>📋</button></li>
+              <li>Puerto: {port} <button onClick={() => handleCopy(port)} className={styles.copyButton}>📋</button></li>
+              <li>Contraseña de Minería: {miningPassword} <button onClick={() => handleCopy(miningPassword)} className={styles.copyButton}>📋</button></li>
             </ul>
           </div>
           <div>
-            <h4 className="font-medium text-dark_text mb-2">Ejemplo de Configuración:</h4>
-            <pre className="bg-gray-200 p-3 rounded-md text-dark_text text-xs overflow-x-auto border border-gray_border">
+            <h4 className={styles.poolConfigSubtitle}>Ejemplo de Configuración:</h4>
+            <pre className={`${styles.codeBlock} ${darkMode ? styles.darkCodeBlock : styles.lightCodeBlock}`}>
               <code>
                 URL: {poolUrl} <br />
                 Usuario: {defaultWorkerName} <br />
                 Contraseña: {miningPassword}
               </code>
             </pre>
-            <p className="text-xs text-gray_text mt-2">El nombre de worker por defecto es: {defaultWorkerName}</p>
+            <p className={styles.workerNameHint}>El nombre de worker por defecto es: {defaultWorkerName}</p>
           </div>
         </div>
       </div>
@@ -320,9 +379,10 @@ const MiningInfoContent = ({ currentUser, userMiners, setUserMiners }) => {
   );
 };
 
-const PaymentsContent = ({ currentUser }) => {
+const PaymentsContent = ({ currentUser, styles }) => {
+  const { darkMode } = useContext(ThemeContext); // Usar ThemeContext
+  const { showError } = useError(); // Usar el contexto de errores
   const [paymentsHistory, setPaymentsHistory] = useState([]);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!currentUser || !currentUser.uid) {
@@ -346,55 +406,55 @@ const PaymentsContent = ({ currentUser }) => {
         setPaymentsHistory(data);
       } catch (fetchError) {
         console.error("Error fetching payments history from Firebase:", fetchError);
-        setError('Error al cargar el historial de pagos.');
+        showError('Error al cargar el historial de pagos.');
       }
     }, (err) => {
       console.error("Error subscribing to payments:", err);
-      setError('Error al suscribirse al historial de pagos.');
+      showError('Error al suscribirse al historial de pagos.');
     });
 
     return () => {
       unsubscribe();
     };
-  }, [currentUser]);
+  }, [currentUser, showError]);
 
   return (
-    <div className="p-2">
-      <h1 className="text-2xl font-bold text-dark_text mb-4">Historial de Pagos</h1>
-      {error && <div className="bg-red_error text-white p-3 rounded mb-4">{error}</div>}
+    <div className={styles.paymentsContent}>
+      <h1 className={styles.pageTitle}>Historial de Pagos</h1>
+      {/* Los mensajes de error y éxito ahora se manejan globalmente */}
 
-      <div className="bg-light_card p-6 rounded-lg shadow-md border border-gray_border">
-        <h2 className="text-xl font-semibold text-dark_text mb-4">Pagos Recibidos</h2>
+      <div className={`${styles.sectionCard} ${darkMode ? styles.dark : styles.light}`}>
+        <h2 className={styles.sectionTitle}>Pagos Recibidos</h2>
         {paymentsHistory.length === 0 ? (
-          <p className="text-gray_text text-center py-8">No hay pagos registrados.</p>
+          <p className={styles.noDataText}>No hay pagos registrados.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray_border">
-              <thead className="bg-gray-100">
+          <div className={styles.tableContainer}>
+            <table className={styles.table}>
+              <thead className={`${darkMode ? styles.darkTableHead : styles.lightTableHead}`}>
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray_text uppercase tracking-wider">Fecha</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray_text uppercase tracking-wider">Cantidad</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray_text uppercase tracking-wider">Moneda</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray_text uppercase tracking-wider">Estado</th>
+                  <th className={styles.tableHeader}>Fecha</th>
+                  <th className={styles.tableHeader}>Cantidad</th>
+                  <th className={styles.tableHeader}>Moneda</th>
+                  <th className={styles.tableHeader}>Estado</th>
                 </tr>
               </thead>
-              <tbody className="bg-light_card divide-y divide-gray_border">
+              <tbody className={`${darkMode ? styles.darkTableBody : styles.lightTableBody}`}>
                 {paymentsHistory.map((payment) => (
                   <tr key={payment.id}>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-dark_text">
+                    <td className={styles.tableCell}>
                       {payment.createdAt.toLocaleDateString()}
                     </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-dark_text">
+                    <td className={styles.tableCell}>
                       {payment.amount.toFixed(8)} {payment.currency}
                     </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-dark_text">
+                    <td className={styles.tableCell}>
                       {payment.currency}
                     </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-dark_text">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        payment.status === 'Pendiente' ? 'bg-yellow-100 text-accent' :
-                        payment.status === 'Completado' ? 'bg-green-100 text-green_check' :
-                        'bg-red-100 text-red_error'
+                    <td className={styles.tableCell}>
+                      <span className={`${styles.statusBadge} ${
+                        payment.status === 'Pendiente' ? styles.statusPending :
+                        payment.status === 'Completado' ? styles.statusCompleted :
+                        styles.statusError
                       }`}>
                         {payment.status}
                       </span>
@@ -410,7 +470,9 @@ const PaymentsContent = ({ currentUser }) => {
   );
 };
 
-const WithdrawalsContent = ({ minPaymentThresholds }) => {
+const WithdrawalsContent = ({ minPaymentThresholds, userPaymentAddresses, styles }) => {
+  const { darkMode } = useContext(ThemeContext); // Usar ThemeContext
+  const { showError, showSuccess } = useError(); // Usar el contexto de errores
   const { currentUser } = useAuth();
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState('BTC');
@@ -425,13 +487,40 @@ const WithdrawalsContent = ({ minPaymentThresholds }) => {
     balanceDOGE: 0,
   });
   const [withdrawalsHistory, setWithdrawalsHistory] = useState([]);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false); // Estado de carga
+  const [selectedAddress, setSelectedAddress] = useState(''); // Nuevo estado para la dirección seleccionada
 
+  // Efecto para inicializar y actualizar la dirección seleccionada y los campos manuales
   useEffect(() => {
     const balanceKey = `balance${currency}`;
     setAvailableBalance(userBalances[balanceKey] || 0);
-  }, [userBalances, currency]);
+
+    const savedAddressForCurrency = userPaymentAddresses[currency];
+
+    if (selectedAddress === 'new') {
+      // Si se selecciona "Ingresar nueva dirección", limpiar los campos
+      setWalletAddress('');
+      setBinanceId('');
+      setUseBinancePay(currency === 'USD');
+    } else if (savedAddressForCurrency && selectedAddress === savedAddressForCurrency) {
+      // Si hay una dirección guardada y está seleccionada
+      if (currency === 'USD') {
+        setBinanceId(savedAddressForCurrency);
+        setWalletAddress('');
+        setUseBinancePay(true);
+      } else {
+        setWalletAddress(savedAddressForCurrency);
+        setBinanceId('');
+        setUseBinancePay(false);
+      }
+    } else {
+      // Si no hay dirección guardada o la seleccionada no coincide, establecer "new"
+      setSelectedAddress('new');
+      setWalletAddress('');
+      setBinanceId('');
+      setUseBinancePay(currency === 'USD');
+    }
+  }, [userBalances, currency, userPaymentAddresses, selectedAddress]);
 
   useEffect(() => {
     const fetchWithdrawalData = async () => {
@@ -461,7 +550,7 @@ const WithdrawalsContent = ({ minPaymentThresholds }) => {
           }
         }, (err) => {
           console.error("Error subscribing to user balances:", err);
-          setError('Error al configurar el listener de balances.');
+          showError('Error al configurar el listener de balances.');
         });
 
         // Cargar historial de retiros del usuario desde Firebase
@@ -479,7 +568,7 @@ const WithdrawalsContent = ({ minPaymentThresholds }) => {
           setWithdrawalsHistory(fetchedWithdrawals);
         }, (err) => {
           console.error("Error subscribing to withdrawals:", err);
-          setError('Error al configurar el listener de retiros.');
+          showError('Error al configurar el listener de retiros.');
         });
 
         return () => {
@@ -488,56 +577,68 @@ const WithdrawalsContent = ({ minPaymentThresholds }) => {
         };
       } catch (err) {
         console.error("Error setting up listeners:", err);
-        setError('Error al configurar los listeners de datos.');
+        showError('Error al configurar los listeners de datos.');
       }
     };
 
     fetchWithdrawalData();
-  }, [currentUser, currency]);
+  }, [currentUser, showError]); // Eliminado 'currency' de las dependencias para evitar bucles con el useEffect de arriba
 
   const handleSubmitWithdrawal = async (e) => {
     e.preventDefault();
-    setMessage('');
-    setError('');
+    setIsLoading(true);
 
     if (!currentUser || !currentUser.uid || !currentUser.email) {
-      setError('Debes iniciar sesión para solicitar un retiro.');
+      showError('Debes iniciar sesión para solicitar un retiro.');
+      setIsLoading(false);
       return;
     }
 
     const withdrawalAmount = parseFloat(amount);
     if (isNaN(withdrawalAmount) || withdrawalAmount <= 0) {
-      setError('Por favor, introduce una cantidad válida.');
+      showError('Por favor, introduce una cantidad válida.');
+      setIsLoading(false);
       return;
     }
     const currentMinThreshold = minPaymentThresholds[currency] || 0;
     if (withdrawalAmount < currentMinThreshold) {
-      setError(`La cantidad mínima de retiro es ${currentMinThreshold.toFixed(currency === 'USD' ? 2 : 8)} ${currency}.`);
+      showError(`La cantidad mínima de retiro es ${currentMinThreshold.toFixed(currency === 'USD' ? 2 : 8)} ${currency}.`);
+      setIsLoading(false);
       return;
     }
     const currentBalanceForCurrency = userBalances[`balance${currency}`] || 0;
     if (withdrawalAmount > currentBalanceForCurrency) {
-      setError(`Fondos insuficientes para realizar el retiro en ${currency}.`);
+      showError(`Fondos insuficientes para realizar el retiro en ${currency}.`);
+      setIsLoading(false);
       return;
     }
 
     let method = '';
     let addressOrId = '';
 
-    if (useBinancePay) {
-      if (!binanceId.trim()) {
-        setError('Por favor, introduce tu Email o ID de Binance.');
-        return;
-      }
-      method = 'Binance Pay';
-      addressOrId = binanceId.trim();
+    if (selectedAddress && selectedAddress !== 'new') {
+      // Usar la dirección seleccionada de las guardadas
+      addressOrId = selectedAddress;
+      method = (currency === 'USD' && useBinancePay) ? 'Binance Pay' : 'Wallet';
     } else {
-      if (!walletAddress.trim()) {
-        setError('Por favor, introduce tu Dirección de Wallet.');
-        return;
+      // Usar la dirección ingresada manualmente
+      if (useBinancePay) {
+        if (!binanceId.trim()) {
+          showError('Por favor, introduce tu Email o ID de Binance.');
+          setIsLoading(false);
+          return;
+        }
+        method = 'Binance Pay';
+        addressOrId = binanceId.trim();
+      } else {
+        if (!walletAddress.trim()) {
+          showError('Por favor, introduce tu Dirección de Wallet.');
+          setIsLoading(false);
+          return;
+        }
+        method = 'Wallet';
+        addressOrId = walletAddress.trim();
       }
-      method = 'Wallet';
-      addressOrId = walletAddress.trim();
     }
 
     try {
@@ -559,147 +660,187 @@ const WithdrawalsContent = ({ minPaymentThresholds }) => {
       const userDocRef = doc(db, 'users', currentUser.uid);
       await updateDoc(userDocRef, { [balanceKey]: newBalance });
 
-      setMessage('Solicitud de retiro enviada exitosamente. Será procesada a la brevedad.');
+      showSuccess('Solicitud de retiro enviada exitosamente. Será procesada a la brevedad.');
       setAmount('');
       setWalletAddress('');
       setBinanceId('');
       setUseBinancePay(false);
     } catch (err) {
       console.error("Error submitting withdrawal:", err);
-      setError(`Fallo al enviar la solicitud de retiro: ${err.message}`);
+      showError(`Fallo al enviar la solicitud de retiro: ${err.message}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="p-2">
-      <h1 className="text-2xl font-bold text-dark_text mb-4">Retiros</h1>
-      {message && <div className="bg-green_check text-white p-3 rounded mb-4">{message}</div>}
-      {error && <div className="bg-red_error text-white p-3 rounded mb-4">{error}</div>}
+    <div className={styles.withdrawalsContent}>
+      <h1 className={styles.pageTitle}>Retiros</h1>
+      {isLoading && (
+        <div className={styles.loadingOverlay}>
+          <div className={styles.loadingText}>Procesando...</div>
+        </div>
+      )}
+      {/* Los mensajes de error y éxito ahora se manejan globalmente */}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className={styles.withdrawalGrid}>
         {/* Solicitar Retiro */}
-        <div className="bg-light_card p-6 rounded-lg shadow-md border border-gray_border">
-          <h2 className="text-xl font-semibold text-dark_text mb-4">Solicitar Retiro</h2>
+        <div className={`${styles.sectionCard} ${darkMode ? styles.dark : styles.light}`}>
+          <h2 className={styles.sectionTitle}>Solicitar Retiro</h2>
           <form onSubmit={handleSubmitWithdrawal}>
-            <div className="mb-4">
-              <label htmlFor="amount" className="block text-gray_text text-sm font-medium mb-1">Cantidad</label>
+            <div className={styles.formGroup}>
+              <label htmlFor="amount" className={styles.formLabel}>Cantidad</label>
               <input
                 type="number"
                 id="amount"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 step="any"
-                className="w-full p-2 bg-gray-100 border border-gray_border rounded-md text-dark_text text-sm focus:outline-none focus:border-blue_link"
+                className={`${styles.formInput} ${darkMode ? styles.darkInput : styles.lightInput}`}
                 placeholder="0.00000000"
                 required
               />
             </div>
-            <div className="mb-4">
-            <label htmlFor="currency" className="block text-gray_text text-sm font-medium mb-1">Moneda</label>
-            <select
-              id="currency"
-              value={currency}
-              onChange={(e) => {
-                setCurrency(e.target.value);
-                // Actualizar availableBalance basado en la moneda seleccionada
-                const balanceKey = `balance${e.target.value}`;
-                setAvailableBalance(userBalances[balanceKey] || 0);
-              }}
-              className="w-full p-2 bg-gray-100 border border-gray_border rounded-md text-dark_text text-sm focus:outline-none focus:border-blue_link"
-            >
-              <option value="BTC">Bitcoin (BTC)</option>
-              <option value="DOGE">Dogecoin (DOGE)</option>
-              <option value="LTC">Litecoin (LTC)</option>
-              <option value="USD">USD</option> {/* Añadir USD como opción de retiro */}
-            </select>
+
+            <div className={styles.formGroup}>
+              <label htmlFor="currency" className={styles.formLabel}>Moneda</label>
+              <select
+                id="currency"
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                className={`${styles.formSelect} ${darkMode ? styles.darkInput : styles.lightInput}`}
+              >
+                <option value="BTC">Bitcoin (BTC)</option>
+                <option value="DOGE">Dogecoin (DOGE)</option>
+                <option value="LTC">Litecoin (LTC)</option>
+                <option value="USD">USD</option>
+              </select>
             </div>
-            <div className="mb-4">
-              <label htmlFor="walletAddress" className="block text-gray_text text-sm font-medium mb-1">Dirección de Wallet</label>
+
+            <div className={styles.formGroup}>
+              <label htmlFor="savedAddress" className={styles.formLabel}>Dirección de Retiro ({currency})</label>
+              <select
+                id="savedAddress"
+                value={selectedAddress}
+                onChange={(e) => {
+                  const newSelectedAddress = e.target.value;
+                  setSelectedAddress(newSelectedAddress);
+                }}
+                className={`${styles.formSelect} ${darkMode ? styles.darkInput : styles.lightInput}`}
+                disabled={isLoading}
+              >
+                {userPaymentAddresses[currency] && (
+                  <option value={userPaymentAddresses[currency]}>
+                    {userPaymentAddresses[currency]} (Guardada)
+                  </option>
+                )}
+                <option value="new">Ingresar nueva dirección</option>
+              </select>
+            </div>
+
+            {/* Campos de entrada manual */}
+            <div className={styles.formGroup}>
+              <label htmlFor="walletAddress" className={styles.formLabel}>Dirección de Wallet (Manual)</label>
               <input
                 type="text"
                 id="walletAddress"
                 value={walletAddress}
                 onChange={(e) => setWalletAddress(e.target.value)}
-                className="w-full p-2 bg-gray-100 border border-gray_border rounded-md text-dark_text text-sm focus:outline-none focus:border-blue_link"
-                placeholder="bc1q..."
-                disabled={useBinancePay}
-                required={!useBinancePay}
+                className={`${styles.formInput} ${darkMode ? styles.darkInput : styles.lightInput}`}
+                placeholder={currency === 'BTC' ? 'bc1q...' : currency === 'LTC' ? 'ltc1q...' : currency === 'DOGE' ? 'D...' : ''}
+                disabled={isLoading || selectedAddress !== 'new' || useBinancePay}
+                required={selectedAddress === 'new' && !useBinancePay}
               />
             </div>
 
-            <div className="mb-4 text-center text-gray_text text-sm">O usar Binance Pay</div>
+            <div className={styles.orSeparator}>O usar Binance Pay</div>
 
-            <div className="mb-4">
-              <label htmlFor="binanceId" className="block text-gray_text text-sm font-medium mb-1">Email o ID de Binance</label>
+            <div className={styles.formGroup}>
+              <label htmlFor="binanceId" className={styles.formLabel}>Email o ID de Binance (Manual)</label>
               <input
                 type="text"
                 id="binanceId"
                 value={binanceId}
                 onChange={(e) => setBinanceId(e.target.value)}
-                className="w-full p-2 bg-gray-100 border border-gray_border rounded-md text-dark_text text-sm focus:outline-none focus:border-blue_link"
+                className={`${styles.formInput} ${darkMode ? styles.darkInput : styles.lightInput}`}
                 placeholder="ejemplo@binance.com o 123456789"
-                disabled={!useBinancePay}
-                required={useBinancePay}
+                disabled={isLoading || selectedAddress !== 'new' || !useBinancePay}
+                required={selectedAddress === 'new' && useBinancePay}
               />
             </div>
-            <div className="mb-6 flex items-center">
+            <div className={styles.checkboxGroup}>
               <input
                 type="checkbox"
                 id="useBinancePay"
                 checked={useBinancePay}
-                onChange={(e) => setUseBinancePay(e.target.checked)}
-                className="form-checkbox h-5 w-5 text-accent bg-gray-100 border-gray_border rounded"
+                onChange={(e) => {
+                  setUseBinancePay(e.target.checked);
+                  // Limpiar el otro campo cuando se cambia el método
+                  if (e.target.checked) {
+                    setWalletAddress('');
+                  } else {
+                    setBinanceId('');
+                  }
+                }}
+                className={styles.checkbox}
+                disabled={isLoading || selectedAddress !== 'new'}
               />
-              <label htmlFor="useBinancePay" className="ml-2 text-gray_text text-sm">Usar Binance Pay en lugar de dirección de wallet</label>
+              <label htmlFor="useBinancePay" className={styles.checkboxLabel}>Usar Binance Pay en lugar de dirección de wallet</label>
             </div>
 
-            <div className="flex justify-between text-xs text-gray_text mb-6">
+            <div className={styles.balanceInfo}>
               <span>Balance disponible: {availableBalance.toFixed(currency === 'USD' ? 2 : 8)} {currency}</span>
               <span>Umbral mínimo: {(minPaymentThresholds[currency] || 0).toFixed(currency === 'USD' ? 2 : 8)} {currency}</span>
             </div>
 
             <button
               type="submit"
-              className="w-full bg-accent hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:shadow-outline"
+              className={styles.submitButton}
+              disabled={isLoading}
             >
-              Solicitar Retiro
+              {isLoading ? (
+                <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : 'Solicitar Retiro'}
             </button>
           </form>
         </div>
 
         {/* Historial de Retiros */}
-        <div className="bg-light_card p-6 rounded-lg shadow-md border border-gray_border">
-          <h2 className="text-xl font-semibold text-dark_text mb-4">Historial de Retiros</h2>
+        <div className={`${styles.sectionCard} ${darkMode ? styles.dark : styles.light}`}>
+          <h2 className={styles.sectionTitle}>Historial de Retiros</h2>
           {withdrawalsHistory.length === 0 ? (
-            <p className="text-gray_text text-center py-8">No hay retiros registrados.</p>
+            <p className={styles.noDataText}>No hay retiros registrados.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray_border">
-                <thead className="bg-gray-100">
+            <div className={styles.tableContainer}>
+              <table className={styles.table}>
+                <thead className={`${darkMode ? styles.darkTableHead : styles.lightTableHead}`}>
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray_text uppercase tracking-wider">Fecha</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray_text uppercase tracking-wider">Cantidad</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray_text uppercase tracking-wider">Método</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray_text uppercase tracking-wider">Estado</th>
+                    <th className={styles.tableHeader}>Fecha</th>
+                    <th className={styles.tableHeader}>Cantidad</th>
+                    <th className={styles.tableHeader}>Método</th>
+                    <th className={styles.tableHeader}>Estado</th>
                   </tr>
                 </thead>
-                <tbody className="bg-light_card divide-y divide-gray_border">
+                <tbody className={`${darkMode ? styles.darkTableBody : styles.lightTableBody}`}>
                   {withdrawalsHistory.map((withdrawal) => (
                     <tr key={withdrawal.id}>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-dark_text">
+                      <td className={styles.tableCell}>
                         {withdrawal.createdAt.toLocaleDateString()}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-dark_text">
+                      <td className={styles.tableCell}>
                         {withdrawal.amount.toFixed(8)} {withdrawal.currency}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-dark_text">
+                      <td className={styles.tableCell}>
                         {withdrawal.currency}
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-dark_text">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          withdrawal.status === 'Pendiente' ? 'bg-yellow-100 text-accent' :
-                          withdrawal.status === 'Completado' ? 'bg-green-100 text-green_check' :
-                          'bg-red-100 text-red_error'
+                      <td className={styles.tableCell}>
+                        <span className={`${styles.statusBadge} ${
+                          withdrawal.status === 'Pendiente' ? styles.statusPending :
+                          withdrawal.status === 'Completado' ? styles.statusCompleted :
+                          styles.statusError
                         }`}>
                           {withdrawal.status}
                         </span>
@@ -716,14 +857,15 @@ const WithdrawalsContent = ({ minPaymentThresholds }) => {
   );
 };
 
-const ContactSupportContent = ({ onUnreadCountChange }) => {
+const ContactSupportContent = ({ onUnreadCountChange, styles }) => {
+  const { darkMode } = useContext(ThemeContext); // Usar ThemeContext
+  const { showError, showSuccess } = useError(); // Usar el contexto de errores
   const { currentUser } = useAuth();
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [subject, setSubject] = useState('');
   const [messageContent, setMessageContent] = useState('');
-  const [statusMessage, setStatusMessage] = useState('');
-  const [isError, setIsError] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // Estado de carga
 
   useEffect(() => {
     if (!currentUser || !currentUser.uid) {
@@ -762,36 +904,33 @@ const ContactSupportContent = ({ onUnreadCountChange }) => {
           const updatedSelected = fetchedTickets.find(t => t.id === selectedTicket.id);
           setSelectedTicket(updatedSelected || null);
         }
-      } catch (error) {
-        console.error("Error al cargar tickets desde Firebase:", error);
-        setStatusMessage('Error al cargar tus solicitudes de soporte.');
-        setIsError(true);
+      } catch (fetchError) {
+        console.error("Error al cargar tickets desde Firebase:", fetchError);
+        showError('Error al cargar tus solicitudes de soporte.');
       }
     }, (err) => {
       console.error("Error subscribing to contact requests:", err);
-      setStatusMessage('Error al suscribirse a las solicitudes de soporte.');
-      setIsError(true);
+      showError('Error al suscribirse a las solicitudes de soporte.');
     });
 
     return () => {
       unsubscribe();
     };
-  }, [currentUser, selectedTicket, onUnreadCountChange]);
+  }, [currentUser, selectedTicket, onUnreadCountChange, showError]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    setStatusMessage('');
-    setIsError(false);
+    setIsLoading(true);
 
     if (!messageContent.trim()) {
-      setStatusMessage('El mensaje no puede estar vacío.');
-      setIsError(true);
+      showError('El mensaje no puede estar vacío.');
+      setIsLoading(false);
       return;
     }
 
     if (!currentUser || !currentUser.uid || !currentUser.email) {
-      setStatusMessage('Debes iniciar sesión para enviar un mensaje.');
-      setIsError(true);
+      showError('Debes iniciar sesión para enviar un mensaje.');
+      setIsLoading(false);
       return;
     }
 
@@ -808,11 +947,11 @@ const ContactSupportContent = ({ onUnreadCountChange }) => {
           status: 'Pendiente',
           updatedAt: new Date(),
         });
-        setStatusMessage('Tu respuesta ha sido enviada.');
+        showSuccess('Tu respuesta ha sido enviada.');
       } else {
         if (!subject.trim()) {
-          setStatusMessage('Por favor, introduce un asunto para tu nueva consulta.');
-          setIsError(true);
+          showError('Por favor, introduce un asunto para tu nueva consulta.');
+          setIsLoading(false);
           return;
         }
         await addDoc(collection(db, 'contactRequests'), {
@@ -828,14 +967,15 @@ const ContactSupportContent = ({ onUnreadCountChange }) => {
             timestamp: new Date(),
           }],
         });
-        setStatusMessage('Tu nueva consulta ha sido enviada. Te responderemos a la brevedad.');
+        showSuccess('Tu nueva consulta ha sido enviada. Te responderemos a la brevedad.');
         setSubject('');
       }
       setMessageContent('');
     } catch (err) {
       console.error("Error al enviar mensaje a Firebase:", err);
-      setStatusMessage(`Fallo al enviar mensaje: ${err.message}`);
-      setIsError(true);
+      showError(`Fallo al enviar mensaje: ${err.message}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -843,8 +983,9 @@ const ContactSupportContent = ({ onUnreadCountChange }) => {
     setSelectedTicket(ticket);
     setSubject(ticket.subject);
     setMessageContent('');
-    setStatusMessage('');
-    setIsError(false);
+    // Limpiar mensajes de error/éxito al seleccionar un nuevo ticket
+    showError(null);
+    showSuccess(null);
 
     if (ticket.status === 'Respondido' && ticket.conversation.some(msg => msg.sender === 'admin' && !msg.readByUser)) {
       const updatedConversation = ticket.conversation.map(msg =>
@@ -853,73 +994,76 @@ const ContactSupportContent = ({ onUnreadCountChange }) => {
       try {
         const ticketRef = doc(db, 'contactRequests', ticket.id);
         await updateDoc(ticketRef, { conversation: updatedConversation });
-      } catch (error) {
-        console.error("Error al marcar mensajes como leídos en Firebase:", error);
-        setStatusMessage('Error al actualizar el estado de lectura del ticket.');
-        setIsError(true);
+      } catch (fetchError) {
+        console.error("Error al marcar mensajes como leídos en Firebase:", fetchError);
+        showError('Error al actualizar el estado de lectura del ticket.');
       }
     }
   };
 
   const handleNewTicket = () => {
-    setSelectedTicket(null);
-    setSubject('');
-    setMessageContent('');
-    setStatusMessage('');
-    setIsError(false);
+      setSelectedTicket(null);
+      setSubject('');
+      setMessageContent('');
+      // Limpiar mensajes de error/éxito al crear un nuevo ticket
+      showError(null);
+      showSuccess(null);
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'Abierto': return 'bg-blue-600';
-      case 'Pendiente': return 'bg-yellow-600';
-      case 'Respondido': return 'bg-purple-600';
-      case 'Cerrado': return 'bg-green-600';
-      default: return 'bg-gray-600';
+      case 'Abierto': return styles.statusOpen;
+      case 'Pendiente': return styles.statusPending;
+      case 'Respondido': return styles.statusResponded;
+      case 'Cerrado': return styles.statusClosed;
+      default: return styles.statusDefault;
     }
   };
 
   return (
-    <div className="flex flex-col lg:flex-row h-full p-2">
-      {/* Mensajes de estado */}
-      {statusMessage && (
-        <div className={`p-3 rounded-md mb-4 text-sm ${isError ? 'bg-red_error text-white' : 'bg-green_check text-white'} lg:absolute lg:top-4 lg:right-4 lg:z-10`}>
-          {statusMessage}
+    <div className={styles.contactSupportContainer}>
+      {isLoading && (
+        <div className={styles.loadingOverlay}>
+          <div className={styles.loadingText}>Procesando...</div>
         </div>
       )}
+      {/* Los mensajes de error y éxito ahora se manejan globalmente */}
 
       {/* Lista de Tickets */}
-      <div className="w-full lg:w-1/3 bg-light_card p-4 rounded-lg shadow-md lg:mr-4 mb-4 lg:mb-0 overflow-y-auto max-h-[calc(100vh-100px)] border border-gray_border">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-dark_text">Mis Solicitudes</h2>
+      <div className={`${styles.ticketListPanel} ${darkMode ? styles.dark : styles.light}`}>
+        <div className={styles.ticketListHeader}>
+          <h2 className={styles.ticketListTitle}>Mis Solicitudes</h2>
           <button
             onClick={handleNewTicket}
-            className="bg-blue_link hover:bg-blue-700 text-white text-sm font-bold py-1.5 px-3 rounded-md"
+            className={styles.newTicketButton}
+            disabled={isLoading}
           >
             + Nueva Consulta
           </button>
         </div>
         {tickets.length === 0 ? (
-          <p className="text-gray_text text-sm">No tienes solicitudes de soporte aún.</p>
+          <p className={styles.noTicketsText}>No tienes solicitudes de soporte aún.</p>
         ) : (
           <ul>
             {tickets.map(ticket => (
               <li
                 key={ticket.id}
-                className={`p-3 mb-2 rounded-lg cursor-pointer ${
-                  selectedTicket && selectedTicket.id === ticket.id ? 'bg-accent text-white' : 'bg-gray-100 hover:bg-gray-200 text-dark_text'
+                className={`${styles.ticketListItem} ${
+                  selectedTicket && selectedTicket.id === ticket.id
+                    ? styles.selectedTicket
+                    : (darkMode ? styles.darkListItem : styles.lightListItem)
                 }`}
                 onClick={() => handleSelectTicket(ticket)}
               >
-                <p className="font-semibold text-base truncate">{ticket.subject}</p>
-                <p className="text-sm text-gray_text truncate">{ticket.conversation[ticket.conversation.length - 1]?.text}</p>
-                <div className="flex justify-between items-center text-xs mt-1">
-                  <span className="text-gray_text">{ticket.createdAt.toLocaleDateString()}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xxs font-semibold ${getStatusColor(ticket.status)}`}>
+                <p className={styles.ticketSubject}>{ticket.subject}</p>
+                <p className={styles.ticketLastMessage}>{ticket.conversation[ticket.conversation.length - 1]?.text}</p>
+                <div className={styles.ticketMeta}>
+                  <span>{ticket.createdAt.toLocaleDateString()}</span>
+                  <span className={`${styles.statusBadge} ${getStatusColor(ticket.status)}`}>
                     {ticket.status}
                   </span>
                   {ticket.status === 'Respondido' && ticket.conversation.some(msg => msg.sender === 'admin' && !msg.readByUser) && (
-                    <span className="ml-auto bg-red_error text-white text-xxs font-bold px-2 py-0.5 rounded-full">
+                    <span className={styles.newBadge}>
                       Nuevo
                     </span>
                   )}
@@ -931,29 +1075,29 @@ const ContactSupportContent = ({ onUnreadCountChange }) => {
       </div>
 
       {/* Detalles de la Solicitud y Formulario de Respuesta */}
-      <div className="flex-1 bg-light_card p-4 rounded-lg shadow-md overflow-y-auto max-h-[calc(100vh-100px)] border border-gray_border">
+      <div className={`${styles.ticketDetailPanel} ${darkMode ? styles.dark : styles.light}`}>
         {selectedTicket ? (
           <div>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-dark_text">{selectedTicket.subject}</h2>
-              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(selectedTicket.status)}`}>
+            <div className={styles.ticketDetailHeader}>
+              <h2 className={styles.ticketDetailTitle}>{selectedTicket.subject}</h2>
+              <span className={`${styles.statusBadge} ${getStatusColor(selectedTicket.status)}`}>
                 {selectedTicket.status}
               </span>
             </div>
-            <p className="text-gray_text text-sm mb-4">
+            <p className={styles.ticketDetailDate}>
               Enviado el: {selectedTicket.createdAt.toLocaleString()}
             </p>
 
             {/* Historial de Conversación */}
-            <div className="bg-gray-100 p-4 rounded-lg shadow-inner mb-4 h-64 overflow-y-auto border border-gray_border">
+            <div className={`${styles.conversationHistory} ${darkMode ? styles.darkInnerCard : styles.lightInnerCard}`}>
               {selectedTicket.conversation.map((msg, index) => (
-                <div key={index} className={`mb-3 ${msg.sender === 'admin' ? 'text-right' : 'text-left'}`}>
-                  <span className={`inline-block p-2 rounded-lg text-sm max-w-[80%] ${
-                    msg.sender === 'admin' ? 'bg-blue_link text-white' : 'bg-gray-200 text-dark_text'
+                <div key={index} className={`${styles.messageContainer} ${msg.sender === 'admin' ? styles.adminMessage : styles.userMessage}`}>
+                  <span className={`${styles.messageBubble} ${
+                    msg.sender === 'admin' ? styles.adminBubble : (darkMode ? styles.darkUserBubble : styles.lightUserBubble)
                   }`}>
                     {msg.text}
                   </span>
-                  <p className="text-xxs text-gray_text mt-1">
+                  <p className={styles.messageMeta}>
                     {msg.sender === 'admin' ? 'Admin' : 'Tú'} - {new Date(msg.timestamp).toLocaleString()}
                   </p>
                 </div>
@@ -961,55 +1105,70 @@ const ContactSupportContent = ({ onUnreadCountChange }) => {
             </div>
 
             {/* Área de Respuesta del Usuario */}
-            <div className="bg-gray-100 p-4 rounded-lg shadow-md border border-gray_border">
-              <h3 className="text-lg font-semibold text-dark_text mb-3">Responder a este Ticket</h3>
+            <div className={`${styles.replySection} ${darkMode ? styles.darkInnerCard : styles.lightInnerCard}`}>
+              <h3 className={styles.replyTitle}>Responder a este Ticket</h3>
               <textarea
                 rows="4"
-                className="w-full p-2 bg-white border border-gray_border rounded-md text-dark_text text-sm focus:outline-none focus:border-blue_link mb-3"
+                className={`${styles.replyTextarea} ${darkMode ? styles.darkInput : styles.lightInput}`}
                 placeholder="Escribe tu respuesta aquí..."
                 value={messageContent}
                 onChange={(e) => setMessageContent(e.target.value)}
                 required
+                disabled={isLoading}
               ></textarea>
               <button
                 onClick={handleSendMessage}
-                className="bg-accent hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded-md w-full"
+                className={styles.submitButton}
+                disabled={isLoading}
               >
-                Enviar Respuesta
+                {isLoading ? (
+                  <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                ) : 'Enviar Respuesta'}
               </button>
             </div>
           </div>
         ) : (
-          <div className="bg-gray-100 p-4 rounded-lg shadow-md border border-gray_border">
-            <h2 className="text-xl font-semibold text-dark_text mb-4">Envía una Nueva Consulta</h2>
+          <div className={`${styles.newTicketFormContainer} ${darkMode ? styles.darkInnerCard : styles.lightInnerCard}`}>
+            <h2 className={styles.newTicketFormTitle}>Envía una Nueva Consulta</h2>
             <form onSubmit={handleSendMessage}>
-              <div className="mb-4">
-                <label htmlFor="subject" className="block text-gray_text text-sm font-medium mb-1">Asunto</label>
+              <div className={styles.formGroup}>
+                <label htmlFor="subject" className={styles.formLabel}>Asunto</label>
                 <input
                   type="text"
                   id="subject"
-                  className="w-full p-2 bg-white border border-gray_border rounded-md text-dark_text text-sm focus:outline-none focus:border-blue_link"
+                  className={`${styles.formInput} ${darkMode ? styles.darkInput : styles.lightInput}`}
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   required
+                  disabled={isLoading}
                 />
               </div>
-              <div className="mb-4">
-                <label htmlFor="messageContent" className="block text-gray_text text-sm font-medium mb-1">Mensaje</label>
+              <div className={styles.formGroup}>
+                <label htmlFor="messageContent" className={styles.formLabel}>Mensaje</label>
                 <textarea
                   id="messageContent"
                   rows="5"
-                  className="w-full p-2 bg-white border border-gray_border rounded-md text-dark_text text-sm focus:outline-none focus:border-blue_link"
+                  className={`${styles.replyTextarea} ${darkMode ? styles.darkInput : styles.lightInput}`}
                   value={messageContent}
                   onChange={(e) => setMessageContent(e.target.value)}
                   required
+                  disabled={isLoading}
                 ></textarea>
               </div>
               <button
                 type="submit"
-                className="w-full bg-accent hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded-md"
+                className={styles.submitButton}
+                disabled={isLoading}
               >
-                Enviar Nueva Consulta
+                {isLoading ? (
+                  <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                ) : 'Enviar Nueva Consulta'}
               </button>
             </form>
           </div>
@@ -1019,28 +1178,35 @@ const ContactSupportContent = ({ onUnreadCountChange }) => {
   );
 };
 
-const ReferralsContent = () => (
-  <div className="bg-white p-2 rounded-lg shadow-md flex flex-col items-center justify-center h-48">
-    <h2 className="text-2xl font-bold text-gray-800 mb-4">Referidos</h2>
-    <p className="text-gray-600 text-lg">Sección en desarrollo</p>
-    <p className="text-gray-500 text-sm mt-2">Pronto podrás gestionar tus referidos y ganancias aquí.</p>
-  </div>
-);
+const ReferralsContent = ({ styles }) => {
+  const { darkMode } = useContext(ThemeContext); // Usar ThemeContext
+  return (
+    <div className={`${styles.referralsContent} ${darkMode ? styles.dark : styles.light}`}>
+      <h2 className={styles.pageTitle}>Referidos</h2>
+      <p className={styles.developmentText}>Sección en desarrollo</p>
+      <p className={styles.developmentSubText}>Pronto podrás gestionar tus referidos y ganancias aquí.</p>
+    </div>
+  );
+};
 
-const SettingsContent = () => {
+const SettingsContent = ({ styles }) => {
+  const { darkMode } = useContext(ThemeContext); // Usar ThemeContext
+  const { showError, showSuccess } = useError(); // Usar el contexto de errores
   const { currentUser } = useAuth();
   const [contactEmail, setContactEmail] = useState(currentUser?.email || '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
-  const [bitcoinAddress, setBitcoinAddress] = useState('');
-  const [dogecoinAddress, setDogecoinAddress] = useState('');
-  const [litecoinAddress, setLitecoinAddress] = useState('');
+  const [paymentAddresses, setPaymentAddresses] = useState({
+    BTC: '',
+    DOGE: '',
+    LTC: '',
+    USD: '', // Añadir USD si se permite guardar direcciones para USD
+  });
   const [receivePaymentNotifications, setReceivePaymentNotifications] = useState(false);
   const [receiveLoginAlerts, setReceiveLoginAlerts] = useState(false);
   const [twoFactorAuthEnabled, setTwoFactorAuthEnabled] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false); // Estado de carga
 
   useEffect(() => {
     const fetchUserSettings = async () => {
@@ -1050,130 +1216,123 @@ const SettingsContent = () => {
           const docSnap = await getDoc(userDocRef);
           if (docSnap.exists()) {
             const userData = docSnap.data();
-            setBitcoinAddress(userData.bitcoinAddress || '');
-            setDogecoinAddress(userData.dogecoinAddress || '');
-            setLitecoinAddress(userData.litecoinAddress || '');
+            setPaymentAddresses(userData.paymentAddresses || { BTC: '', DOGE: '', LTC: '', USD: '' });
             setReceivePaymentNotifications(userData.receivePaymentNotifications || false);
             setReceiveLoginAlerts(userData.receiveLoginAlerts || false);
             setTwoFactorAuthEnabled(userData.twoFactorAuthEnabled || false);
           }
         } catch (userError) {
           console.error("Error fetching user settings from Firebase:", userError);
-          setError('Error al cargar la configuración del usuario.');
+          showError('Error al cargar la configuración del usuario.');
         }
       }
     };
     fetchUserSettings();
-  }, [currentUser]);
+  }, [currentUser, showError]);
+
+  const handlePaymentAddressChange = (currency, address) => {
+    setPaymentAddresses(prev => ({
+      ...prev,
+      [currency]: address
+    }));
+  };
 
   const handleUpdateAccount = async (e) => {
     e.preventDefault();
-    setMessage('');
-    setError('');
+    setIsLoading(true);
 
-    if (!currentUser || !currentUser.uid || !currentUser.email) {
-      setError('No hay usuario autenticado.');
+    if (!currentUser || !currentUser.uid) {
+      showError('No hay usuario autenticado.');
+      setIsLoading(false);
+      return;
+    }
+
+    if (newPassword && newPassword !== confirmNewPassword) {
+      showError('Las nuevas contraseñas no coinciden.');
+      setIsLoading(false);
       return;
     }
 
     try {
-      let userUpdated = false;
-      const userDocRef = doc(db, 'users', currentUser.uid);
+      // Reautenticar al usuario si se va a cambiar la contraseña o el email
+      if (currentPassword && (newPassword || contactEmail !== currentUser.email)) {
+        const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
+        await reauthenticateWithCredential(currentUser, credential);
+      }
 
-      // Actualizar email en Firebase Authentication y Firestore
       if (contactEmail !== currentUser.email) {
-        if (currentPassword) {
-          const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
-          await reauthenticateWithCredential(currentUser, credential);
-          await updateEmail(currentUser, contactEmail);
-          await updateDoc(userDocRef, { email: contactEmail });
-          setMessage('Email actualizado exitosamente.');
-          userUpdated = true;
-        } else {
-          setError('Se requiere la contraseña actual para cambiar el email.');
-          return;
-        }
+        await updateEmail(currentUser, contactEmail);
+        showSuccess('Email actualizado exitosamente.');
       }
 
-      // Actualizar contraseña en Firebase Authentication
       if (newPassword) {
-        if (newPassword !== confirmNewPassword) {
-          setError('Las nuevas contraseñas no coinciden.');
-          return;
-        }
-        if (currentPassword) {
-          const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
-          await reauthenticateWithCredential(currentUser, credential);
-          await updatePassword(currentUser, newPassword);
-          setMessage(prev => (prev ? prev + ' y ' : '') + 'Contraseña actualizada exitosamente.');
-          setNewPassword('');
-          setConfirmNewPassword('');
-          setCurrentPassword('');
-          userUpdated = true;
-        } else {
-          setError('Se requiere la contraseña actual para cambiar la contraseña.');
-          return;
-        }
+        await updatePassword(currentUser, newPassword);
+        showSuccess('Contraseña actualizada exitosamente.');
+        setNewPassword('');
+        setConfirmNewPassword('');
+        setCurrentPassword('');
       }
 
-      if (userUpdated) {
-        setMessage(prev => (prev ? prev + ' y ' : '') + 'Configuración de cuenta actualizada.');
-      } else {
-        setMessage('No se realizaron cambios en la configuración de la cuenta.');
+      if (!newPassword && contactEmail === currentUser.email) {
+        showSuccess('Configuración de cuenta actualizada exitosamente.');
       }
 
     } catch (err) {
-      console.error("Error al actualizar la cuenta en Firebase:", err);
-      setError(`Fallo al actualizar la cuenta: ${err.message}`);
+      console.error("Error al actualizar la cuenta:", err);
+      showError(`Fallo al actualizar la cuenta: ${err.message}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleSaveAddresses = async () => {
-    setMessage('');
-    setError('');
+    setIsLoading(true);
     if (!currentUser || !currentUser.uid) {
-      setError('No hay usuario autenticado.');
+      showError('No hay usuario autenticado.');
+      setIsLoading(false);
       return;
     }
     try {
       const userDocRef = doc(db, 'users', currentUser.uid);
       await updateDoc(userDocRef, {
-        bitcoinAddress,
-        dogecoinAddress,
-        litecoinAddress,
+        paymentAddresses: paymentAddresses,
       });
-      setMessage('Direcciones de pago guardadas exitosamente.');
+      showSuccess('Direcciones de pago guardadas exitosamente.');
     } catch (err) {
       console.error("Error al guardar direcciones en Firebase:", err);
-      setError(`Fallo al guardar direcciones: ${err.message}`);
+      showError(`Fallo al guardar direcciones: ${err.message}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleSaveNotifications = async () => {
-    setMessage('');
-    setError('');
+    setIsLoading(true);
     if (!currentUser || !currentUser.uid) {
-      setError('No hay usuario autenticado.');
+      showError('No hay usuario autenticado.');
+      setIsLoading(false);
       return;
     }
     try {
       const userDocRef = doc(db, 'users', currentUser.uid);
       await updateDoc(userDocRef, {
-        receivePaymentNotifications,
-        receiveLoginAlerts,
+        receivePaymentNotifications: receivePaymentNotifications,
+        receiveLoginAlerts: receiveLoginAlerts,
       });
-      setMessage('Preferencias de notificación guardadas exitosamente.');
+      showSuccess('Preferencias de notificación guardadas exitosamente.');
     } catch (err) {
       console.error("Error al guardar preferencias de notificación en Firebase:", err);
-      setError(`Fallo al guardar preferencias de notificación: ${err.message}`);
+      showError(`Fallo al guardar preferencias de notificación: ${err.message}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleToggleTwoFactorAuth = async () => {
-    setMessage('');
-    setError('');
+    setIsLoading(true);
     if (!currentUser || !currentUser.uid) {
-      setError('No hay usuario autenticado.');
+      showError('No hay usuario autenticado.');
+      setIsLoading(false);
       return;
     }
     try {
@@ -1182,160 +1341,202 @@ const SettingsContent = () => {
         twoFactorAuthEnabled: !twoFactorAuthEnabled,
       });
       setTwoFactorAuthEnabled(prev => !prev);
-      setMessage(`Autenticación de dos factores ${!twoFactorAuthEnabled ? 'activada' : 'desactivada'} exitosamente.`);
+      showSuccess(`Autenticación de dos factores ${!twoFactorAuthEnabled ? 'activada' : 'desactivada'} exitosamente.`);
     } catch (err) {
       console.error("Error al cambiar 2FA en Firebase:", err);
-      setError(`Fallo al cambiar autenticación de dos factores: ${err.message}`);
+      showError(`Fallo al cambiar autenticación de dos factores: ${err.message}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="p-2">
-      <h1 className="text-2xl font-bold text-gray-800 mb-4">Configuración</h1>
-      {message && <div className="bg-green-100 text-green-800 p-3 rounded mb-4">{message}</div>}
-      {error && <div className="bg-red-100 text-red-800 p-3 rounded mb-4">{error}</div>}
+    <div className={styles.settingsContent}>
+      <h1 className={styles.pageTitle}>Configuración</h1>
+      {isLoading && (
+        <div className={styles.loadingOverlay}>
+          <div className={styles.loadingText}>Procesando...</div>
+        </div>
+      )}
+      {/* Los mensajes de error y éxito ahora se manejan globalmente */}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className={styles.settingsGrid}>
         {/* Configuración de Cuenta */}
-        <div className="bg-white p-4 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Configuración de Cuenta</h2>
+        <div className={`${styles.sectionCard} ${darkMode ? styles.dark : styles.light}`}>
+          <h2 className={styles.sectionTitle}>Configuración de Cuenta</h2>
           <form onSubmit={handleUpdateAccount}>
-            <div className="mb-4">
-              <label htmlFor="contact-email" className="block text-gray-700 text-sm font-medium mb-1">Email de Contacto</label>
+            <div className={styles.formGroup}>
+              <label htmlFor="contact-email" className={styles.formLabel}>Email de Contacto</label>
               <input
                 type="email"
                 id="contact-email"
-                className="w-full p-2 bg-gray-50 border border-gray-300 rounded-md text-gray-900 text-sm focus:outline-none focus:border-yellow-500"
+                className={`${styles.formInput} ${darkMode ? styles.darkInput : styles.lightInput}`}
                 value={contactEmail}
                 onChange={(e) => setContactEmail(e.target.value)}
+                disabled={isLoading}
               />
             </div>
-            <div className="mb-4">
-              <label htmlFor="current-password" className="block text-gray-700 text-sm font-medium mb-1">Contraseña Actual</label>
+            <div className={styles.formGroup}>
+              <label htmlFor="current-password" className={styles.formLabel}>Contraseña Actual</label>
               <input
                 type="password"
                 id="current-password"
-                className="w-full p-2 bg-gray-50 border border-gray-300 rounded-md text-gray-900 text-sm focus:outline-none focus:border-yellow-500"
+                className={`${styles.formInput} ${darkMode ? styles.darkInput : styles.lightInput}`}
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
+                disabled={isLoading}
               />
             </div>
-            <div className="mb-4">
-              <label htmlFor="new-password" className="block text-gray-700 text-sm font-medium mb-1">Nueva Contraseña</label>
+            <div className={styles.formGroup}>
+              <label htmlFor="new-password" className={styles.formLabel}>Nueva Contraseña</label>
               <input
                 type="password"
                 id="new-password"
-                className="w-full p-2 bg-gray-50 border border-gray-300 rounded-md text-gray-900 text-sm focus:outline-none focus:border-yellow-500"
+                className={`${styles.formInput} ${darkMode ? styles.darkInput : styles.lightInput}`}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
+                disabled={isLoading}
               />
             </div>
-            <div className="mb-6">
-              <label htmlFor="confirm-new-password" className="block text-gray-700 text-sm font-medium mb-1">Confirmar Contraseña</label>
+            <div className={styles.formGroup}>
+              <label htmlFor="confirm-new-password" className={styles.formLabel}>Confirmar Contraseña</label>
               <input
                 type="password"
                 id="confirm-new-password"
-                className="w-full p-2 bg-gray-50 border border-gray-300 rounded-md text-gray-900 text-sm focus:outline-none focus:border-yellow-500"
+                className={`${styles.formInput} ${darkMode ? styles.darkInput : styles.lightInput}`}
                 value={confirmNewPassword}
                 onChange={(e) => setConfirmNewPassword(e.target.value)}
+                disabled={isLoading}
               />
             </div>
             <button
               type="submit"
-              className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-md w-full"
+              className={styles.submitButton}
+              disabled={isLoading}
             >
-              Actualizar Configuración
+              {isLoading ? (
+                <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : 'Actualizar Configuración'}
             </button>
           </form>
         </div>
 
         {/* Seguridad y Direcciones de Pago */}
-        <div className="bg-white p-4 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Seguridad</h2>
-          <div className="flex items-center justify-between mb-6">
-            <span className="text-gray-700 text-sm font-medium">Autenticación de Dos Factores</span>
-            <div className="flex items-center">
-              <span className="text-gray-500 text-sm mr-2">En Desarrollo</span>
+        <div className={`${styles.sectionCard} ${darkMode ? styles.dark : styles.light}`}>
+          <h2 className={styles.sectionTitle}>Seguridad</h2>
+          <div className={styles.twoFactorAuth}>
+            <span className={styles.twoFactorAuthLabel}>Autenticación de Dos Factores</span>
+            <div className={styles.twoFactorAuthControls}>
+              <span className={styles.developmentTextSmall}>En Desarrollo</span>
               <button
                 onClick={handleToggleTwoFactorAuth}
-                className={`py-1 px-3 rounded-md text-xs font-medium bg-gray-300 text-gray-700 cursor-not-allowed`}
-                disabled={true} // Deshabilitar el botón
+                className={`${styles.disabledButton} ${darkMode ? styles.darkDisabledButton : styles.lightDisabledButton}`}
+                disabled={true || isLoading} // Deshabilitar el botón
               >
                 Activar
               </button>
             </div>
           </div>
 
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Direcciones de Pago Predeterminadas</h2>
-          <div className="mb-4">
-            <label htmlFor="bitcoin-address" className="block text-gray-700 text-sm font-medium mb-1">Bitcoin (BTC)</label>
+          <h2 className={styles.sectionTitle}>Direcciones de Pago Predeterminadas</h2>
+          <div className={styles.formGroup}>
+            <label htmlFor="bitcoin-address" className={styles.formLabel}>Bitcoin (BTC)</label>
             <input
               type="text"
               id="bitcoin-address"
-              className="w-full p-2 bg-gray-50 border border-gray-300 rounded-md text-gray-900 text-sm focus:outline-none focus:border-blue-500"
-              value={bitcoinAddress}
-              onChange={(e) => setBitcoinAddress(e.target.value)}
+              className={`${styles.formInput} ${darkMode ? styles.darkInput : styles.lightInput}`}
+              value={paymentAddresses.BTC}
+              onChange={(e) => handlePaymentAddressChange('BTC', e.target.value)}
+              disabled={isLoading}
             />
           </div>
-          <div className="mb-4">
-            <label htmlFor="dogecoin-address" className="block text-gray-700 text-sm font-medium mb-1">Dogecoin (DOGE)</label>
+          <div className={styles.formGroup}>
+            <label htmlFor="dogecoin-address" className={styles.formLabel}>Dogecoin (DOGE)</label>
             <input
               type="text"
               id="dogecoin-address"
-              className="w-full p-2 bg-gray-50 border border-gray-300 rounded-md text-gray-900 text-sm focus:outline-none focus:border-blue-500"
-              value={dogecoinAddress}
-              onChange={(e) => setDogecoinAddress(e.target.value)}
+              className={`${styles.formInput} ${darkMode ? styles.darkInput : styles.lightInput}`}
+              value={paymentAddresses.DOGE}
+              onChange={(e) => handlePaymentAddressChange('DOGE', e.target.value)}
+              disabled={isLoading}
             />
           </div>
-          <div className="mb-6">
-            <label htmlFor="litecoin-address" className="block text-gray-700 text-sm font-medium mb-1">Litecoin (LTC)</label>
+          <div className={styles.formGroup}>
+            <label htmlFor="litecoin-address" className={styles.formLabel}>Litecoin (LTC)</label>
             <input
               type="text"
               id="litecoin-address"
-              className="w-full p-2 bg-gray-50 border border-gray-300 rounded-md text-gray-900 text-sm focus:outline-none focus:border-blue-500"
-              value={litecoinAddress}
-              onChange={(e) => setLitecoinAddress(e.target.value)}
+              className={`${styles.formInput} ${darkMode ? styles.darkInput : styles.lightInput}`}
+              value={paymentAddresses.LTC}
+              onChange={(e) => handlePaymentAddressChange('LTC', e.target.value)}
+              disabled={isLoading}
+            />
+          </div>
+          <div className={styles.formGroup}>
+            <label htmlFor="usd-address" className={styles.formLabel}>USD (Binance Pay ID/Email)</label>
+            <input
+              type="text"
+              id="usd-address"
+              className={`${styles.formInput} ${darkMode ? styles.darkInput : styles.lightInput}`}
+              value={paymentAddresses.USD}
+              onChange={(e) => handlePaymentAddressChange('USD', e.target.value)}
+              disabled={isLoading}
+              placeholder="Email o ID de Binance para USD"
             />
           </div>
           <button
             onClick={handleSaveAddresses}
-            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md w-full"
+            className={styles.submitButton}
+            disabled={isLoading}
           >
-            Guardar Direcciones
+            {isLoading ? (
+              <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            ) : 'Guardar Direcciones'}
           </button>
 
           {/* Notificaciones */}
-          <h2 className="text-xl font-semibold text-gray-800 mt-6 mb-4">Notificaciones</h2>
-          <div className="mb-2">
-            <label className="inline-flex items-center">
+          <h2 className={styles.sectionTitle}>Notificaciones</h2>
+          <div className={styles.checkboxGroup}>
+            <label className={styles.checkboxLabel}>
               <input
                 type="checkbox"
-                className="form-checkbox h-5 w-5 text-blue-500 bg-gray-50 border-gray-300 rounded cursor-not-allowed"
+                className={`${styles.checkbox} ${styles.disabledCheckbox}`}
                 checked={false} // Siempre false ya que está en desarrollo
                 onChange={() => {}} // No permitir cambios
-                disabled={true} // Deshabilitar el checkbox
+                disabled={true || isLoading} // Deshabilitar el checkbox
               />
-              <span className="ml-2 text-gray-500 text-sm">Recibir notificaciones de pagos por email (En Desarrollo)</span>
+              <span className={styles.developmentTextSmall}>Recibir notificaciones de pagos por email (En Desarrollo)</span>
             </label>
           </div>
-          <div className="mb-6">
-            <label className="inline-flex items-center">
+          <div className={styles.checkboxGroup}>
+            <label className={styles.checkboxLabel}>
               <input
                 type="checkbox"
-                className="form-checkbox h-5 w-5 text-blue-500 bg-gray-50 border-gray-300 rounded cursor-not-allowed"
+                className={`${styles.checkbox} ${styles.disabledCheckbox}`}
                 checked={false} // Siempre false ya que está en desarrollo
                 onChange={() => {}} // No permitir cambios
-                disabled={true} // Deshabilitar el checkbox
+                disabled={true || isLoading} // Deshabilitar el checkbox
               />
-              <span className="ml-2 text-gray-500 text-sm">Recibir alertas de inicio de sesión (En Desarrollo)</span>
+              <span className={styles.developmentTextSmall}>Recibir alertas de inicio de sesión (En Desarrollo)</span>
             </label>
           </div>
           <button
             onClick={handleSaveNotifications}
-            className="bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-md w-full cursor-not-allowed"
-            disabled={true} // Deshabilitar el botón
+            className={`${styles.disabledButton} ${darkMode ? styles.darkDisabledButton : styles.lightDisabledButton}`}
+            disabled={true || isLoading} // Deshabilitar el botón
           >
-            Guardar Preferencias
+            {isLoading ? (
+              <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            ) : 'Guardar Preferencias'}
           </button>
         </div>
       </div>
@@ -1346,8 +1547,8 @@ const SettingsContent = () => {
 
 const UserPanel = () => {
   const { currentUser, logout } = useAuth();
+  const { darkMode } = useContext(ThemeContext); // Usar ThemeContext
   const navigate = useNavigate();
-  const location = useLocation();
   const [userMiners, setUserMiners] = useState([]);
   const [unreadTicketsCount, setUnreadTicketsCount] = useState(0);
   const [userBalances, setUserBalances] = useState({
@@ -1368,180 +1569,191 @@ const UserPanel = () => {
   const [poolCommission, setPoolCommission] = useState(0); // Nuevo estado para la comisión de la pool
   const [paymentsHistory, setPaymentsHistory] = useState([]); // Estado para el historial de pagos
   const [withdrawalsHistory, setWithdrawalsHistory] = useState([]); // Estado para el historial de retiros
+  const [userPaymentAddresses, setUserPaymentAddresses] = useState({}); // Nuevo estado para las direcciones de pago del usuario
 
 
   const handleUnreadCountChange = (count) => {
     setUnreadTicketsCount(count);
   };
 
-  // Obtener la ruta base actual para los enlaces de la barra lateral
-  const { pathname } = useLocation();
-  const basePath = pathname.split('/').slice(0, 2).join('/'); // e.g., "/user" or "/test-user-settings"
-
   const demoUser = { email: 'demo@example.com' };
   const displayUser = currentUser || demoUser;
 
-  const chartData = {
-    labels: Object.keys(countMinersByUser(userMiners)),
+  const totalHashrate = useMemo(() => {
+    return userMiners.reduce((sum, miner) => sum + (miner.currentHashrate || 0), 0);
+  }, [userMiners]);
+
+  const estimatedDailyUSD = useMemo(() => {
+    return totalHashrate * paymentRate;
+  }, [totalHashrate, paymentRate]);
+
+  const chartData = useMemo(() => ({
+    labels: ['Hashrate Total (TH/s)', 'Ganancia Diaria Estimada (USD)'],
     datasets: [{
-      label: 'Mineros por Usuario',
-      data: Object.values(countMinersByUser(userMiners)),
-      backgroundColor: 'rgba(54, 162, 235, 0.5)',
-      borderColor: 'rgba(54, 162, 235, 1)',
+      label: 'Rendimiento Actual',
+      data: [totalHashrate, estimatedDailyUSD],
+      backgroundColor: [
+        'rgba(54, 162, 235, 0.5)', // Color para Hashrate
+        'rgba(75, 192, 192, 0.5)'  // Color para Ganancia
+      ],
+      borderColor: [
+        'rgba(54, 162, 235, 1)',
+        'rgba(75, 192, 192, 1)'
+      ],
       borderWidth: 1
     }]
-  };
+  }), [totalHashrate, estimatedDailyUSD]);
 
+  // Suscripción para mineros del usuario
   useEffect(() => {
-    let unsubscribeMiners = null;
-    let unsubscribeUserBalances = null;
-    let unsubscribePoolConfig = null;
-    let unsubscribePaymentConfig = null;
-    let unsubscribeAllMiners = null; // Nueva suscripción para todos los mineros
-    let unsubscribePayments = null; // Nueva suscripción para pagos
-    let unsubscribeWithdrawals = null; // Nueva suscripción para retiros
-
-    if (currentUser && currentUser.uid) {
-      // Suscripción para mineros del usuario
-      console.log("UserPanel: Configurando suscripción para mineros del usuario:", currentUser.uid);
-      const minersQuery = query(collection(db, "miners"), where("userId", "==", currentUser.uid));
-      unsubscribeMiners = onSnapshot(minersQuery, (snapshot) => {
-        const fetchedMiners = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setUserMiners(fetchedMiners);
-      }, (error) => {
-        console.error("UserPanel: Error en la suscripción de mineros:", error);
-      });
-
-      // Suscripción para todos los mineros (para hashrate total de la pool)
-      console.log("UserPanel: Configurando suscripción para todos los mineros.");
-      const allMinersQuery = collection(db, "miners");
-      unsubscribeAllMiners = onSnapshot(allMinersQuery, (snapshot) => {
-        let totalHash = 0;
-        snapshot.docs.forEach(doc => {
-          totalHash += doc.data().currentHashrate || 0;
-        });
-        setTotalHashratePool(totalHash);
-      }, (error) => {
-        console.error("UserPanel: Error en la suscripción de todos los mineros:", error);
-      });
-
-      // Suscripción para balances del usuario
-      console.log("UserPanel: Configurando suscripción para balances del usuario:", currentUser.uid);
-      const userDocRef = doc(db, "users", currentUser.uid);
-      unsubscribeUserBalances = onSnapshot(userDocRef, (docSnapshot) => {
-        if (docSnapshot.exists()) {
-          const userData = docSnapshot.data();
-          setUserBalances({
-            balanceUSD: userData.balanceUSD || 0,
-            balanceBTC: userData.balanceBTC || 0,
-            balanceLTC: userData.balanceLTC || 0,
-            balanceDOGE: userData.balanceDOGE || 0,
-          });
-        } else {
-          // Si el documento de usuario no existe en Firestore, crearlo
-          console.log("UserPanel: Documento de usuario no existe en Firestore. Creando uno nuevo...");
-          setDoc(userDocRef, {
-            balanceUSD: 0,
-            balanceBTC: 0,
-            balanceLTC: 0,
-            balanceDOGE: 0,
-            role: 'user',
-            email: currentUser.email,
-          }).then(() => {
-            console.log("UserPanel: Documento de usuario creado exitosamente en Firestore.");
-            setUserBalances({
-              balanceUSD: 0,
-              balanceBTC: 0,
-              balanceLTC: 0,
-              balanceDOGE: 0,
-            });
-          }).catch((insertError) => {
-            console.error("UserPanel: Error al crear el documento de usuario en Firestore:", insertError);
-          });
-        }
-      }, (error) => {
-        console.error("UserPanel: Error en la suscripción de balances del usuario:", error);
-      });
-
-      // Suscripción para configuración de la pool
-      console.log("UserPanel: Configurando suscripción para poolConfig.");
-      const poolConfigQuery = query(collection(db, "settings"), where("key", "==", "poolConfig"));
-      unsubscribePoolConfig = onSnapshot(poolConfigQuery, (snapshot) => {
-        const settingsData = snapshot.docs.length > 0 ? snapshot.docs[0].data() : {};
-        setPaymentRate(settingsData.obsoletePrice || 0.00);
-        setBtcToUsdRate(settingsData.btcToUsdRate || 20000);
-        setPoolCommission(settingsData.commission || 0); // Obtener la comisión
-      }, (error) => {
-        console.error("UserPanel: Error en la suscripción de poolConfig:", error);
-      });
-
-      // Suscripción para configuración de pagos
-      console.log("UserPanel: Configurando suscripción para paymentConfig.");
-      const paymentConfigQuery = query(collection(db, "settings"), where("key", "==", "paymentConfig"));
-      unsubscribePaymentConfig = onSnapshot(paymentConfigQuery, (snapshot) => {
-        const settingsData = snapshot.docs.length > 0 ? snapshot.docs[0].data() : {};
-        setMinPaymentThresholds({
-          BTC: settingsData.minPaymentThresholdBTC || 0.00000001,
-          DOGE: settingsData.minPaymentThresholdDOGE || 100,
-          LTC: settingsData.minPaymentThresholdLTC || 0.01,
-          USD: settingsData.minPaymentThresholdUSD || 10,
-        });
-      }, (error) => {
-        console.error("UserPanel: Error en la suscripción de paymentConfig:", error);
-      });
-
-      // Suscripción para historial de pagos
-      console.log("UserPanel: Configurando suscripción para historial de pagos.");
-      const paymentsQuery = query(collection(db, "payments"), where("userId", "==", currentUser.uid), orderBy("createdAt", "desc"));
-      unsubscribePayments = onSnapshot(paymentsQuery, (snapshot) => {
-        const fetchedPayments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), createdAt: doc.data().createdAt.toDate() }));
-        setPaymentsHistory(fetchedPayments);
-      }, (error) => {
-        console.error("UserPanel: Error en la suscripción de pagos:", error);
-      });
-
-      // Suscripción para historial de retiros
-      console.log("UserPanel: Configurando suscripción para historial de retiros.");
-      const withdrawalsQuery = query(collection(db, "withdrawals"), where("userId", "==", currentUser.uid), orderBy("createdAt", "desc"));
-      unsubscribeWithdrawals = onSnapshot(withdrawalsQuery, (snapshot) => {
-        const fetchedWithdrawals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), createdAt: doc.data().createdAt.toDate() }));
-        setWithdrawalsHistory(fetchedWithdrawals);
-      }, (error) => {
-        console.error("UserPanel: Error en la suscripción de retiros:", error);
-      });
-
-      return () => {
-        console.log("UserPanel: Limpiando todas las suscripciones de Firebase.");
-        if (unsubscribeMiners) unsubscribeMiners();
-        if (unsubscribeUserBalances) unsubscribeUserBalances();
-        if (unsubscribePoolConfig) unsubscribePoolConfig();
-        if (unsubscribePaymentConfig) unsubscribePaymentConfig();
-        if (unsubscribeAllMiners) unsubscribeAllMiners();
-        if (unsubscribePayments) unsubscribePayments();
-        if (unsubscribeWithdrawals) unsubscribeWithdrawals();
-      };
-    } else {
-      console.log("UserPanel: No hay currentUser. Limpiando estados.");
+    if (!currentUser?.uid) {
       setUserMiners([]);
+      return;
+    }
+    console.log("UserPanel: Configurando suscripción para mineros del usuario:", currentUser.uid);
+    const minersQuery = query(collection(db, "miners"), where("userId", "==", currentUser.uid));
+    const unsubscribe = onSnapshot(minersQuery, (snapshot) => {
+      const fetchedMiners = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setUserMiners(fetchedMiners);
+    }, (error) => {
+      console.error("UserPanel: Error en la suscripción de mineros:", error);
+    });
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  // Suscripción para todos los mineros (para hashrate total de la pool)
+  useEffect(() => {
+    console.log("UserPanel: Configurando suscripción para todos los mineros.");
+    const allMinersQuery = collection(db, "miners");
+    const unsubscribe = onSnapshot(allMinersQuery, (snapshot) => {
+      let totalHash = 0;
+      snapshot.docs.forEach(doc => {
+        totalHash += doc.data().currentHashrate || 0;
+      });
+      setTotalHashratePool(totalHash);
+    }, (error) => {
+      console.error("UserPanel: Error en la suscripción de todos los mineros:", error);
+    });
+    return () => unsubscribe();
+  }, []); // No depende de currentUser, ya que es para todos los mineros
+
+  // Suscripción para balances del usuario
+  useEffect(() => {
+    if (!currentUser?.uid) {
       setUserBalances({
         balanceUSD: 0,
         balanceBTC: 0,
         balanceLTC: 0,
         balanceDOGE: 0,
       });
-      setPaymentRate(0.00);
-      setBtcToUsdRate(20000);
-      setMinPaymentThresholds({
-        BTC: 0.001,
-        DOGE: 100,
-        LTC: 0.01,
-        USD: 10,
-      });
-      setTotalHashratePool(0);
-      setPoolCommission(0);
-      setPaymentsHistory([]);
-      setWithdrawalsHistory([]);
+      return;
     }
+    console.log("UserPanel: Configurando suscripción para balances del usuario:", currentUser.uid);
+    const userDocRef = doc(db, "users", currentUser.uid);
+    const unsubscribe = onSnapshot(userDocRef, (docSnapshot) => {
+      if (docSnapshot.exists()) {
+        const userData = docSnapshot.data();
+        setUserBalances({
+          balanceUSD: userData.balanceUSD || 0,
+          balanceBTC: userData.balanceBTC || 0,
+          balanceLTC: userData.balanceLTC || 0,
+          balanceDOGE: userData.balanceDOGE || 0,
+        });
+        setUserPaymentAddresses(userData.paymentAddresses || {}); // Actualizar direcciones de pago
+      } else {
+        console.log("UserPanel: Documento de usuario no existe en Firestore. Creando uno nuevo...");
+        setDoc(userDocRef, {
+          balanceUSD: 0,
+          balanceBTC: 0,
+          balanceLTC: 0,
+          balanceDOGE: 0,
+          role: 'user',
+          email: currentUser.email,
+          paymentAddresses: {}, // Inicializar paymentAddresses
+        }).then(() => {
+          console.log("UserPanel: Documento de usuario creado exitosamente en Firestore.");
+          setUserBalances({
+            balanceUSD: 0,
+            balanceBTC: 0,
+            balanceLTC: 0,
+            balanceDOGE: 0,
+          });
+          setUserPaymentAddresses({});
+        }).catch((insertError) => {
+          console.error("UserPanel: Error al crear el documento de usuario en Firestore:", insertError);
+        });
+      }
+    }, (error) => {
+      console.error("UserPanel: Error en la suscripción de balances del usuario:", error);
+    });
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  // Suscripción para configuración de la pool
+  useEffect(() => {
+    console.log("UserPanel: Configurando suscripción para poolConfig.");
+    const poolConfigQuery = query(collection(db, "settings"), where("key", "==", "poolConfig"));
+    const unsubscribe = onSnapshot(poolConfigQuery, (snapshot) => {
+      const settingsData = snapshot.docs.length > 0 ? snapshot.docs[0].data() : {};
+      setPaymentRate(settingsData.obsoletePrice || 0.00);
+      setBtcToUsdRate(settingsData.btcToUsdRate || 20000);
+      setPoolCommission(settingsData.commission || 0);
+    }, (error) => {
+      console.error("UserPanel: Error en la suscripción de poolConfig:", error);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Suscripción para configuración de pagos
+  useEffect(() => {
+    console.log("UserPanel: Configurando suscripción para paymentConfig.");
+    const paymentConfigQuery = query(collection(db, "settings"), where("key", "==", "paymentConfig"));
+    const unsubscribe = onSnapshot(paymentConfigQuery, (snapshot) => {
+      const settingsData = snapshot.docs.length > 0 ? snapshot.docs[0].data() : {};
+      setMinPaymentThresholds({
+        BTC: settingsData.minPaymentThresholdBTC || 0.00000001,
+        DOGE: settingsData.minPaymentThresholdDOGE || 100,
+        LTC: settingsData.minPaymentThresholdLTC || 0.01,
+        USD: settingsData.minPaymentThresholdUSD || 10,
+      });
+    }, (error) => {
+      console.error("UserPanel: Error en la suscripción de paymentConfig:", error);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Suscripción para historial de pagos
+  useEffect(() => {
+    if (!currentUser?.uid) {
+      setPaymentsHistory([]);
+      return;
+    }
+    console.log("UserPanel: Configurando suscripción para historial de pagos.");
+    const paymentsQuery = query(collection(db, "payments"), where("userId", "==", currentUser.uid), orderBy("createdAt", "desc"));
+    const unsubscribe = onSnapshot(paymentsQuery, (snapshot) => {
+      const fetchedPayments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), createdAt: doc.data().createdAt.toDate() }));
+      setPaymentsHistory(fetchedPayments);
+    }, (error) => {
+      console.error("UserPanel: Error en la suscripción de pagos:", error);
+    });
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  // Suscripción para historial de retiros
+  useEffect(() => {
+    if (!currentUser?.uid) {
+      setWithdrawalsHistory([]);
+      return;
+    }
+    console.log("UserPanel: Configurando suscripción para historial de retiros.");
+    const withdrawalsQuery = query(collection(db, "withdrawals"), where("userId", "==", currentUser.uid), orderBy("createdAt", "desc"));
+    const unsubscribe = onSnapshot(withdrawalsQuery, (snapshot) => {
+      const fetchedWithdrawals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), createdAt: doc.data().createdAt.toDate() }));
+      setWithdrawalsHistory(fetchedWithdrawals);
+    }, (error) => {
+      console.error("UserPanel: Error en la suscripción de retiros:", error);
+    });
+    return () => unsubscribe();
   }, [currentUser]);
 
   async function handleLogout() {
@@ -1554,126 +1766,28 @@ const UserPanel = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-light_bg text-dark_text">
-      {/* Sidebar de Navegación */}
-      <aside className="w-64 bg-light_card p-2 shadow-lg border-r border-gray_border">
-        <div className="flex flex-col items-center text-center border-b border-gray_border pb-2 mb-2">
-          <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-1">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-dark_text" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-          </div>
-          <h2 className="text-base font-semibold text-dark_text truncate w-full">{displayUser.email || 'Usuario'}</h2>
-          <p className="text-xs text-gray_text">Minero</p>
-        </div>
-        <nav>
-          <ul>
-            <li className="mb-0.5">
-              <Link
-                to={`${basePath}/dashboard`}
-                className={`flex items-center py-1.5 px-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                  useMatch(`${basePath}/dashboard`) ? 'bg-accent text-white' : 'text-gray_text hover:bg-gray-100 hover:text-dark_text'
-                }`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                Dashboard
-              </Link>
-            </li>
-            <li className="mb-0.5">
-              <Link
-                to={`${basePath}/mining-info`}
-                className={`flex items-center py-1.5 px-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                  useMatch(`${basePath}/mining-info`) ? 'bg-accent text-white' : 'text-gray_text hover:bg-gray-100 hover:text-dark_text'
-                }`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                Conectar Pool Estándar
-              </Link>
-            </li>
-            <li className="mb-0.5">
-              <Link
-                to={`${basePath}/withdrawals`}
-                className={`flex items-center py-1.5 px-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                  useMatch(`${basePath}/withdrawals`) ? 'bg-accent text-white' : 'text-gray_text hover:bg-gray-100 hover:text-dark_text'
-                }`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V3a1 1 0 00-1-1H4a1 1 0 00-1 1v18a1 1 0 001 1h12a1 1 0 001-1v-5m-1-10v4m-4 0h4"/></svg>
-                Retiros
-              </Link>
-            </li>
-            <li className="mb-0.5">
-              <Link
-                to={`${basePath}/contact-support`}
-                className={`flex items-center py-1.5 px-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                  useMatch(`${basePath}/contact-support`) ? 'bg-accent text-white' : 'text-gray_text hover:bg-gray-100 hover:text-dark_text'
-                }`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-                Contacto Soporte
-                {unreadTicketsCount > 0 && (
-                  <span className="ml-auto bg-red_error text-white text-xxs font-bold px-2 py-0.5 rounded-full">
-                    {unreadTicketsCount}
-                  </span>
-                )}
-              </Link>
-            </li>
-            <li className="mb-0.5">
-              <Link
-                to={`${basePath}/referrals`}
-                className={`flex items-center py-1.5 px-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                  useMatch(`${basePath}/referrals`) ? 'bg-accent text-white' : 'text-gray_text hover:bg-gray-100 hover:text-dark_text'
-                }`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h2a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2h2M9 10l4 4m0 0l4-4m-4 4V3"/></svg>
-                Referidos
-              </Link>
-            </li>
-            <li className="mb-0.5">
-              <Link
-                to={`${basePath}/pool-arbitrage`}
-                className={`flex items-center py-1.5 px-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                  useMatch(`${basePath}/pool-arbitrage`) ? 'bg-accent text-white' : 'text-gray_text hover:bg-gray-100 hover:text-dark_text'
-                }`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
-                Pools de Arbitraje
-              </Link>
-            </li>
-            <li className="mb-0.5">
-              <Link
-                to={`${basePath}/settings`}
-                className={`flex items-center py-1.5 px-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                  useMatch(`${basePath}/settings`) ? 'bg-accent text-white' : 'text-gray_text hover:bg-gray-100 hover:text-dark_text'
-                }`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                Configuración
-              </Link>
-            </li>
-          </ul>
-        </nav>
-        <div className="mt-auto pt-2 border-t border-gray_border text-center">
-          <p className="text-xxs text-gray_text mb-1">Miembro desde: 01/01/2023</p>
-          <p className="text-xxs text-gray_text">UID: {currentUser?.uid?.substring(0, 6) || 'Usuario'}</p>
-        </div>
-      </aside>
-
-      {/* Contenido Principal */}
-      <main className="flex-1 p-4 overflow-y-auto">
-        <header className="flex justify-between items-center mb-4">
-            <h1 className="text-2xl font-bold text-dark_text">Dashboard</h1>
+    <div className={styles.userPanelContainer}>
+      <Sidebar 
+        unreadTicketsCount={unreadTicketsCount} 
+        displayUser={displayUser} 
+      />
+      <MainContent>
+        <header className={styles.mainContentHeader}>
+            <h1 className={styles.mainContentTitle}>Dashboard</h1>
         </header>
         
         <Routes>
-          <Route path="dashboard/*" element={<DashboardContent userMiners={userMiners} chartData={chartData} userBalances={userBalances} paymentRate={paymentRate} btcToUsdRate={btcToUsdRate} totalHashratePool={totalHashratePool} poolCommission={poolCommission} paymentsHistory={paymentsHistory} withdrawalsHistory={withdrawalsHistory} />} />
-          <Route path="mining-info/*" element={<MiningInfoContent currentUser={currentUser} userMiners={userMiners} setUserMiners={setUserMiners} />} />
-          <Route path="withdrawals/*" element={<WithdrawalsContent minPaymentThresholds={minPaymentThresholds} />} />
-          <Route path="contact-support/*" element={<ContactSupportContent onUnreadCountChange={handleUnreadCountChange} />} />
-          <Route path="referrals/*" element={<ReferralsContent />} />
+          <Route path="dashboard/*" element={<DashboardContent userMiners={userMiners} chartData={chartData} userBalances={userBalances} paymentRate={paymentRate} btcToUsdRate={btcToUsdRate} totalHashratePool={totalHashratePool} poolCommission={poolCommission} paymentsHistory={paymentsHistory} withdrawalsHistory={withdrawalsHistory} styles={styles} totalHashrate={totalHashrate} estimatedDailyUSD={estimatedDailyUSD} />} />
+          <Route path="mining-info/*" element={<MiningInfoContent currentUser={currentUser} userMiners={userMiners} setUserMiners={setUserMiners} styles={styles} />} />
+          <Route path="withdrawals/*" element={<WithdrawalsContent minPaymentThresholds={minPaymentThresholds} userPaymentAddresses={userPaymentAddresses} styles={styles} />} />
+          <Route path="contact-support/*" element={<ContactSupportContent onUnreadCountChange={handleUnreadCountChange} styles={styles} />} />
+          <Route path="referrals/*" element={<ReferralsContent styles={styles} />} />
           <Route path="pool-arbitrage/*" element={<UserPoolArbitrage />} />
-          <Route path="settings/*" element={<SettingsContent />} />
+          <Route path="settings/*" element={<SettingsContent styles={styles} />} />
           {/* Ruta por defecto */}
-          <Route path="/*" element={<DashboardContent userMiners={userMiners} chartData={chartData} userBalances={userBalances} paymentRate={paymentRate} btcToUsdRate={btcToUsdRate} totalHashratePool={totalHashratePool} poolCommission={poolCommission} paymentsHistory={paymentsHistory} withdrawalsHistory={withdrawalsHistory} />} />
+          <Route path="/*" element={<DashboardContent userMiners={userMiners} chartData={chartData} userBalances={userBalances} paymentRate={paymentRate} btcToUsdRate={btcToUsdRate} totalHashratePool={totalHashratePool} poolCommission={poolCommission} paymentsHistory={paymentsHistory} withdrawalsHistory={withdrawalsHistory} styles={styles} totalHashrate={totalHashrate} estimatedDailyUSD={estimatedDailyUSD} />} />
         </Routes>
-      </main>
+      </MainContent>
     </div>
   );
 };

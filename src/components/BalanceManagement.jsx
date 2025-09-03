@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../firebase/firebase'; // Importar Firebase Firestore
+import { db } from '../services/firebase'; // Importar Firebase Firestore
 import { collection, getDocs, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { useTheme } from '../context/ThemeContext';
+import { useError } from '../context/ErrorContext'; // Importar useError
+
 const BalanceManagement = () => {
+  const { theme } = useTheme();
+  const { showError, showSuccess } = useError(); // Usar el contexto de errores
   const [users, setUsers] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState(''); // Para operaciones individuales
   const [selectedUserIds, setSelectedUserIds] = useState([]); // Para operaciones masivas
@@ -10,8 +15,6 @@ const BalanceManagement = () => {
   const [massAmount, setMassAmount] = useState(''); // Cantidad para operaciones masivas
   const [massCurrency, setMassCurrency] = useState('USD'); // Moneda para operaciones masivas
   const [massOperation, setMassOperation] = useState('add'); // 'add', 'subtract', 'reset'
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -21,7 +24,7 @@ const BalanceManagement = () => {
         setUsers(records);
       } catch (error) {
         console.error("Error fetching users from Firebase:", error);
-        setError('Error al cargar la lista de usuarios.');
+        showError('Error al cargar la lista de usuarios.');
       }
     };
 
@@ -33,13 +36,13 @@ const BalanceManagement = () => {
       setUsers(updatedUsers);
     }, (error) => {
       console.error("Error subscribing to users collection:", error);
-      setError('Error al suscribirse a los cambios de usuarios.');
+      showError('Error al suscribirse a los cambios de usuarios.');
     });
 
     return () => {
       unsubscribe(); // Desuscribirse de los cambios de Firebase
     };
-  }, []);
+  }, [showError]);
 
   const handleSelectUser = (userId) => {
     setSelectedUserIds(prevSelected =>
@@ -59,16 +62,16 @@ const BalanceManagement = () => {
 
   const handleAddBalance = async (e) => {
     e.preventDefault();
-    setMessage('');
-    setError('');
+    showSuccess(null);
+    showError(null);
 
     if (!selectedUserId) {
-      setError('Por favor, selecciona un usuario.');
+      showError('Por favor, selecciona un usuario.');
       return;
     }
     const amount = parseFloat(amountToAdd);
     if (isNaN(amount) || amount <= 0) {
-      setError('Por favor, introduce una cantidad válida y positiva.');
+      showError('Por favor, introduce una cantidad válida y positiva.');
       return;
     }
 
@@ -83,29 +86,29 @@ const BalanceManagement = () => {
         const userRef = doc(db, 'users', selectedUserId);
         await updateDoc(userRef, { [currencyField]: newBalance });
 
-        setMessage(`Se han añadido ${amount.toFixed(8)} ${selectedCurrency} al balance de ${selectedUser.email}. Nuevo balance: ${newBalance.toFixed(8)} ${selectedCurrency}`);
+        showSuccess(`Se han añadido ${amount.toFixed(8)} ${selectedCurrency} al balance de ${selectedUser.email}. Nuevo balance: ${newBalance.toFixed(8)} ${selectedCurrency}`);
         setAmountToAdd('');
       } else {
-        setError('Usuario no encontrado.');
+        showError('Usuario no encontrado.');
       }
     } catch (err) {
       console.error("Error adding balance to Firebase:", err);
-      setError(`Fallo al añadir balance: ${err.message}`);
+      showError(`Fallo al añadir balance: ${err.message}`);
     }
   };
 
   const handleSubtractBalance = async (e) => {
     e.preventDefault();
-    setMessage('');
-    setError('');
+    showSuccess(null);
+    showError(null);
 
     if (!selectedUserId) {
-      setError('Por favor, selecciona un usuario.');
+      showError('Por favor, selecciona un usuario.');
       return;
     }
     const amount = parseFloat(amountToAdd);
     if (isNaN(amount) || amount <= 0) {
-      setError('Por favor, introduce una cantidad válida y positiva para restar.');
+      showError('Por favor, introduce una cantidad válida y positiva para restar.');
       return;
     }
 
@@ -116,7 +119,7 @@ const BalanceManagement = () => {
         const currencyField = `balance${selectedCurrency}`;
         const currentBalance = selectedUser[currencyField] || 0;
         if (currentBalance < amount) {
-          setError(`No se puede restar una cantidad mayor al balance actual en ${selectedCurrency}.`);
+          showError(`No se puede restar una cantidad mayor al balance actual en ${selectedCurrency}.`);
           return;
         }
         const newBalance = currentBalance - amount;
@@ -124,29 +127,29 @@ const BalanceManagement = () => {
         const userRef = doc(db, 'users', selectedUserId);
         await updateDoc(userRef, { [currencyField]: newBalance });
 
-        setMessage(`Se han restado ${amount.toFixed(8)} ${selectedCurrency} del balance de ${selectedUser.email}. Nuevo balance: ${newBalance.toFixed(8)} ${selectedCurrency}`);
+        showSuccess(`Se han restado ${amount.toFixed(8)} ${selectedCurrency} del balance de ${selectedUser.email}. Nuevo balance: ${newBalance.toFixed(8)} ${selectedCurrency}`);
         setAmountToAdd('');
       } else {
-        setError('Usuario no encontrado.');
+        showError('Usuario no encontrado.');
       }
     } catch (err) {
       console.error("Error subtracting balance from Firebase:", err);
-      setError(`Fallo al restar balance: ${err.message}`);
+      showError(`Fallo al restar balance: ${err.message}`);
     }
   };
 
   const handleMassBalanceUpdate = async () => {
-    setMessage('');
-    setError('');
+    showSuccess(null);
+    showError(null);
 
     if (selectedUserIds.length === 0) {
-      setError('Por favor, selecciona al menos un usuario para la operación masiva.');
+      showError('Por favor, selecciona al menos un usuario para la operación masiva.');
       return;
     }
 
     const amount = parseFloat(massAmount);
     if (massOperation !== 'reset' && (isNaN(amount) || amount <= 0)) {
-      setError('Por favor, introduce una cantidad válida y positiva para la operación masiva.');
+      showError('Por favor, introduce una cantidad válida y positiva para la operación masiva.');
       return;
     }
 
@@ -192,31 +195,30 @@ const BalanceManagement = () => {
         }
       }
 
-      setMessage(`Operación masiva completada: ${successfulUpdates} usuarios actualizados, ${failedUpdates} fallidos.`);
+      showSuccess(`Operación masiva completada: ${successfulUpdates} usuarios actualizados, ${failedUpdates} fallidos.`);
       setSelectedUserIds([]);
       setMassAmount('');
     } catch (err) {
       console.error("Error performing mass balance update in Firebase:", err);
-      setError(`Fallo al realizar la operación masiva: ${err.message}`);
+      showError(`Fallo al realizar la operación masiva: ${err.message}`);
     }
   };
 
   return (
-    <div className="bg-gray-800 p-6 rounded-lg shadow-md">
-      <h2 className="text-2xl font-semibold text-white mb-4">Gestión de Balance de Usuarios</h2>
-      {message && <div className="bg-green-500 text-white p-3 rounded mb-4">{message}</div>}
-      {error && <div className="bg-red-500 text-white p-3 rounded mb-4">{error}</div>}
+    <div className={`${theme.background} ${theme.text} p-6 rounded-lg shadow-md`}>
+      <h2 className="text-2xl font-semibold mb-4">Gestión de Balance de Usuarios</h2>
+      {/* Los mensajes de error y éxito ahora se manejan globalmente */}
 
       <div className="mb-6">
-        <h3 className="text-xl font-semibold text-white mb-3">Añadir Balance</h3>
+        <h3 className="text-xl font-semibold mb-3">Añadir Balance</h3>
         <form onSubmit={handleAddBalance} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div>
-            <label htmlFor="userSelectAdd" className="block text-sm font-medium text-gray-300 mb-1">Seleccionar Usuario:</label>
+            <label htmlFor="userSelectAdd" className="block text-sm font-medium mb-1">Seleccionar Usuario:</label>
             <select
               id="userSelectAdd"
               value={selectedUserId}
               onChange={(e) => setSelectedUserId(e.target.value)}
-              className="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm sm:text-sm p-2 text-white"
+              className={`${theme.inputBackground} ${theme.text} border-gray-600 rounded-md shadow-sm sm:text-sm p-2 w-full`}
             >
               <option value="">Selecciona un usuario</option>
               {users.map(user => (
@@ -225,12 +227,12 @@ const BalanceManagement = () => {
             </select>
           </div>
           <div>
-            <label htmlFor="currencySelectAdd" className="block text-sm font-medium text-gray-300 mb-1">Moneda:</label>
+            <label htmlFor="currencySelectAdd" className="block text-sm font-medium mb-1">Moneda:</label>
             <select
               id="currencySelectAdd"
               value={selectedCurrency}
               onChange={(e) => setSelectedCurrency(e.target.value)}
-              className="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm sm:text-sm p-2 text-white"
+              className={`${theme.inputBackground} ${theme.text} border-gray-600 rounded-md shadow-sm sm:text-sm p-2 w-full`}
             >
               <option value="USD">USD</option>
               <option value="BTC">BTC</option>
@@ -239,14 +241,14 @@ const BalanceManagement = () => {
             </select>
           </div>
           <div>
-            <label htmlFor="amountToAdd" className="block text-sm font-medium text-gray-300 mb-1">Cantidad a Añadir ({selectedCurrency}):</label>
+            <label htmlFor="amountToAdd" className="block text-sm font-medium mb-1">Cantidad a Añadir ({selectedCurrency}):</label>
             <input
               type="number"
               id="amountToAdd"
               value={amountToAdd}
               onChange={(e) => setAmountToAdd(e.target.value)}
               step={selectedCurrency === 'USD' ? "0.01" : "0.00000001"}
-              className="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm sm:text-sm p-2 text-white"
+              className={`${theme.inputBackground} ${theme.text} border-gray-600 rounded-md shadow-sm sm:text-sm p-2 w-full`}
               placeholder={`Ej: ${selectedCurrency === 'USD' ? '100.00' : '0.001'}`}
               required
             />
@@ -263,15 +265,15 @@ const BalanceManagement = () => {
       </div>
 
       <div className="mb-6">
-        <h3 className="text-xl font-semibold text-white mb-3">Restar Balance</h3>
+        <h3 className="text-xl font-semibold mb-3">Restar Balance</h3>
         <form onSubmit={handleSubtractBalance} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div>
-            <label htmlFor="userSelectSubtract" className="block text-sm font-medium text-gray-300 mb-1">Seleccionar Usuario:</label>
+            <label htmlFor="userSelectSubtract" className="block text-sm font-medium mb-1">Seleccionar Usuario:</label>
             <select
               id="userSelectSubtract"
               value={selectedUserId}
               onChange={(e) => setSelectedUserId(e.target.value)}
-              className="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm sm:text-sm p-2 text-white"
+              className={`${theme.inputBackground} ${theme.text} border-gray-600 rounded-md shadow-sm sm:text-sm p-2 w-full`}
             >
               <option value="">Selecciona un usuario</option>
               {users.map(user => (
@@ -280,12 +282,12 @@ const BalanceManagement = () => {
             </select>
           </div>
           <div>
-            <label htmlFor="currencySelectSubtract" className="block text-sm font-medium text-gray-300 mb-1">Moneda:</label>
+            <label htmlFor="currencySelectSubtract" className="block text-sm font-medium mb-1">Moneda:</label>
             <select
               id="currencySelectSubtract"
               value={selectedCurrency}
               onChange={(e) => setSelectedCurrency(e.target.value)}
-              className="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm sm:text-sm p-2 text-white"
+              className={`${theme.inputBackground} ${theme.text} border-gray-600 rounded-md shadow-sm sm:text-sm p-2 w-full`}
             >
               <option value="USD">USD</option>
               <option value="BTC">BTC</option>
@@ -294,14 +296,14 @@ const BalanceManagement = () => {
             </select>
           </div>
           <div>
-            <label htmlFor="amountToSubtract" className="block text-sm font-medium text-gray-300 mb-1">Cantidad a Restar ({selectedCurrency}):</label>
+            <label htmlFor="amountToSubtract" className="block text-sm font-medium mb-1">Cantidad a Restar ({selectedCurrency}):</label>
             <input
               type="number"
               id="amountToSubtract"
               value={amountToAdd}
               onChange={(e) => setAmountToAdd(e.target.value)}
               step={selectedCurrency === 'USD' ? "0.01" : "0.00000001"}
-              className="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm sm:text-sm p-2 text-white"
+              className={`${theme.inputBackground} ${theme.text} border-gray-600 rounded-md shadow-sm sm:text-sm p-2 w-full`}
               placeholder={`Ej: ${selectedCurrency === 'USD' ? '50.00' : '0.0005'}`}
               required
             />
@@ -318,18 +320,18 @@ const BalanceManagement = () => {
       </div>
 
       {/* Sección: Operaciones Masivas de Balance */}
-      <div className="mb-6 p-4 bg-gray-700 rounded-lg shadow-inner">
-        <h3 className="text-xl font-semibold text-white mb-3">Operaciones Masivas de Balance</h3>
-        <p className="text-gray-400 text-sm mb-4">Aplica cambios de balance a los usuarios seleccionados en la tabla de abajo.</p>
+      <div className={`mb-6 p-4 ${theme.backgroundAlt} rounded-lg shadow-inner`}>
+        <h3 className="text-xl font-semibold mb-3">Operaciones Masivas de Balance</h3>
+        <p className={`${theme.textSoft} text-sm mb-4`}>Aplica cambios de balance a los usuarios seleccionados en la tabla de abajo.</p>
         
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div>
-            <label htmlFor="massOperation" className="block text-sm font-medium text-gray-300 mb-1">Operación:</label>
+            <label htmlFor="massOperation" className="block text-sm font-medium mb-1">Operación:</label>
             <select
               id="massOperation"
               value={massOperation}
               onChange={(e) => setMassOperation(e.target.value)}
-              className="w-full bg-gray-800 border-gray-600 rounded-md shadow-sm sm:text-sm p-2 text-white"
+              className={`${theme.inputBackground} ${theme.text} border-gray-600 rounded-md shadow-sm sm:text-sm p-2 w-full`}
             >
               <option value="add">Añadir</option>
               <option value="subtract">Restar</option>
@@ -337,12 +339,12 @@ const BalanceManagement = () => {
             </select>
           </div>
           <div>
-            <label htmlFor="massCurrency" className="block text-sm font-medium text-gray-300 mb-1">Moneda:</label>
+            <label htmlFor="massCurrency" className="block text-sm font-medium mb-1">Moneda:</label>
             <select
               id="massCurrency"
               value={massCurrency}
               onChange={(e) => setMassCurrency(e.target.value)}
-              className="w-full bg-gray-800 border-gray-600 rounded-md shadow-sm sm:text-sm p-2 text-white"
+              className={`${theme.inputBackground} ${theme.text} border-gray-600 rounded-md shadow-sm sm:text-sm p-2 w-full`}
               disabled={massOperation === 'reset'}
             >
               <option value="USD">USD</option>
@@ -352,14 +354,14 @@ const BalanceManagement = () => {
             </select>
           </div>
           <div>
-            <label htmlFor="massAmount" className="block text-sm font-medium text-gray-300 mb-1">Cantidad ({massCurrency}):</label>
+            <label htmlFor="massAmount" className="block text-sm font-medium mb-1">Cantidad ({massCurrency}):</label>
             <input
               type="number"
               id="massAmount"
               value={massAmount}
               onChange={(e) => setMassAmount(e.target.value)}
               step={massCurrency === 'USD' ? "0.01" : "0.00000001"}
-              className="w-full bg-gray-800 border-gray-600 rounded-md shadow-sm sm:text-sm p-2 text-white"
+              className={`${theme.inputBackground} ${theme.text} border-gray-600 rounded-md shadow-sm sm:text-sm p-2 w-full`}
               placeholder={`Ej: ${massCurrency === 'USD' ? '100.00' : '0.001'}`}
               disabled={massOperation === 'reset'}
               required={massOperation !== 'reset'}
@@ -376,57 +378,57 @@ const BalanceManagement = () => {
           </div>
         </div>
         {selectedUserIds.length > 0 && (
-          <p className="text-gray-400 text-sm mt-3">Usuarios seleccionados: {selectedUserIds.length}</p>
+          <p className={`${theme.textSoft} text-sm mt-3`}>Usuarios seleccionados: {selectedUserIds.length}</p>
         )}
       </div>
 
-      <h3 className="text-xl font-semibold text-white mb-3">Balances Actuales de Usuarios</h3>
+      <h3 className="text-xl font-semibold mb-3">Balances Actuales de Usuarios</h3>
       {users.length === 0 ? (
-        <p className="text-gray-400 text-center py-8">No hay usuarios registrados.</p>
+        <p className={`${theme.textSoft} text-center py-8`}>No hay usuarios registrados.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-700">
-            <thead className="bg-gray-700">
+          <table className={`min-w-full divide-y ${theme.borderColor}`}>
+            <thead className={`${theme.tableHeaderBackground}`}>
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                <th className={`px-6 py-3 text-left text-xs font-medium ${theme.textSoft} uppercase tracking-wider`}>
                   <input
                     type="checkbox"
-                    className="form-checkbox h-4 w-4 text-yellow-500 bg-gray-700 border-gray-600 rounded"
+                    className={`form-checkbox h-4 w-4 text-yellow-500 ${theme.inputBackground} ${theme.borderColor} rounded`}
                     onChange={handleSelectAllUsers}
                     checked={selectedUserIds.length === users.length && users.length > 0}
                   />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Email de Usuario</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">ID de Usuario (UID)</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Balance (USD)</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Balance (BTC)</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Balance (LTC)</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Balance (DOGE)</th>
+                <th className={`px-6 py-3 text-left text-xs font-medium ${theme.textSoft} uppercase tracking-wider`}>Email de Usuario</th>
+                <th className={`px-6 py-3 text-left text-xs font-medium ${theme.textSoft} uppercase tracking-wider`}>ID de Usuario (UID)</th>
+                <th className={`px-6 py-3 text-left text-xs font-medium ${theme.textSoft} uppercase tracking-wider`}>Balance (USD)</th>
+                <th className={`px-6 py-3 text-left text-xs font-medium ${theme.textSoft} uppercase tracking-wider`}>Balance (BTC)</th>
+                <th className={`px-6 py-3 text-left text-xs font-medium ${theme.textSoft} uppercase tracking-wider`}>Balance (LTC)</th>
+                <th className={`px-6 py-3 text-left text-xs font-medium ${theme.textSoft} uppercase tracking-wider`}>Balance (DOGE)</th>
               </tr>
             </thead>
-            <tbody className="bg-gray-800 divide-y divide-gray-700">
+            <tbody className={`${theme.background} divide-y ${theme.borderColor}`}>
               {users.map((user) => (
                 <tr key={user.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${theme.textSoft}`}>
                     <input
                       type="checkbox"
-                      className="form-checkbox h-4 w-4 text-yellow-500 bg-gray-700 border-gray-600 rounded"
+                      className={`form-checkbox h-4 w-4 text-yellow-500 ${theme.inputBackground} ${theme.borderColor} rounded`}
                       checked={selectedUserIds.includes(user.id)}
                       onChange={() => handleSelectUser(user.id)}
                     />
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{user.email}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{user.id}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${theme.textSoft}`}>{user.email}</td>
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${theme.textSoft}`}>{user.id}</td>
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${theme.textSoft}`}>
                     ${(user.balanceUSD || 0).toFixed(2)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${theme.textSoft}`}>
                     {(user.balanceBTC || 0).toFixed(8)} BTC
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${theme.textSoft}`}>
                     {(user.balanceLTC || 0).toFixed(8)} LTC
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${theme.textSoft}`}>
                     {(user.balanceDOGE || 0).toFixed(8)} DOGE
                   </td>
                 </tr>

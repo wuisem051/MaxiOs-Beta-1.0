@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { db, auth } from '../firebase/firebase'; // Importar la instancia de Firebase Firestore y Auth
+import React, { useState, useEffect, useContext } from 'react'; // Importar useContext
+import { db, auth } from '../services/firebase'; // Importar la instancia de Firebase Firestore y Auth
 import { collection, query, onSnapshot, doc, getDoc, setDoc, updateDoc, deleteDoc, where, getDocs } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, updateEmail, updatePassword, deleteUser, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { ThemeContext } from '../context/ThemeContext'; // Importar ThemeContext
+import { useError } from '../context/ErrorContext'; // Importar useError
 
 const UserManagement = () => {
+  const { darkMode } = useContext(ThemeContext); // Usar ThemeContext
+  const { showError, showSuccess } = useError(); // Usar el contexto de errores
   const [users, setUsers] = useState([]);
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
@@ -13,8 +17,6 @@ const UserManagement = () => {
   const [editRole, setEditRole] = useState('');
   const [editPassword, setEditPassword] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState([]); // Nuevo estado para selección masiva
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
 
 
   // Función para obtener usuarios
@@ -29,7 +31,7 @@ const UserManagement = () => {
       setUsers(usersData);
     } catch (error) {
       console.error("Error fetching users from Firebase: ", error);
-      setError(`Error al cargar usuarios: ${error.message}`);
+      showError(`Error al cargar usuarios: ${error.message}`);
     }
   };
 
@@ -45,13 +47,13 @@ const UserManagement = () => {
       setUsers(usersData);
     }, (error) => {
       console.error("Error subscribing to users:", error);
-      setError('Error al suscribirse a los usuarios.');
+      showError('Error al suscribirse a los usuarios.');
     });
 
     return () => {
       unsubscribe();
     };
-  }, []);
+  }, [showError]);
 
   const handleSelectUser = (userId) => {
     setSelectedUserIds(prevSelected =>
@@ -71,8 +73,8 @@ const UserManagement = () => {
 
   const handleAddUser = async (e) => {
     e.preventDefault();
-    setError('');
-    setMessage('');
+    showError(null);
+    showSuccess(null);
     try {
       // Crear usuario en Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(auth, newUserEmail, newUserPassword);
@@ -102,10 +104,10 @@ const UserManagement = () => {
       setNewUserPassword('');
       setNewUserRole('user');
       fetchUsers();
-      setMessage('Usuario añadido exitosamente!');
+      showSuccess('Usuario añadido exitosamente!');
     } catch (error) {
       console.error("Error adding user: ", error);
-      setError(`Error al agregar usuario: ${error.message}`);
+      showError(`Error al agregar usuario: ${error.message}`);
     }
   };
 
@@ -118,8 +120,8 @@ const UserManagement = () => {
 
   const handleUpdateUser = async (e) => {
     e.preventDefault();
-    setError('');
-    setMessage('');
+    showError(null);
+    showSuccess(null);
     try {
       const userRef = doc(db, 'users', editingUser.id);
       await updateDoc(userRef, {
@@ -153,17 +155,17 @@ const UserManagement = () => {
       setEditRole('');
       setEditPassword('');
       fetchUsers();
-      setMessage('Usuario actualizado exitosamente en Firebase!');
+      showSuccess('Usuario actualizado exitosamente en Firebase!');
     } catch (error) {
       console.error("Error updating user: ", error);
-      setError(`Error al actualizar usuario: ${error.message}`);
+      showError(`Error al actualizar usuario: ${error.message}`);
     }
   };
 
   const handleDeleteUser = async (userToDelete) => {
     if (window.confirm(`¿Estás seguro de que quieres eliminar al usuario ${userToDelete.email}? Esta acción es irreversible.`)) {
-      setError('');
-      setMessage('');
+      showError(null);
+      showSuccess(null);
       try {
         // Eliminar el documento del usuario de Firestore
         await deleteDoc(doc(db, 'users', userToDelete.id));
@@ -183,18 +185,18 @@ const UserManagement = () => {
         // Eliminar el documento del minero asociado (si existe)
         await deleteDoc(doc(db, 'miners', userToDelete.id)); // Asumiendo que el ID del minero es el mismo que el userId
 
-        setMessage("Usuario y mineros asociados eliminados de Firebase.");
+        showSuccess("Usuario y mineros asociados eliminados de Firebase.");
         fetchUsers();
       } catch (error) {
         console.error("Error deleting user: ", error);
-        setError(`Error al eliminar usuario: ${error.message}`);
+        showError(`Error al eliminar usuario: ${error.message}`);
       }
     }
   };
 
   const handleMassDeleteUsers = async () => {
     if (selectedUserIds.length === 0) {
-      setError('Por favor, selecciona al menos un usuario para eliminar.');
+      showError('Por favor, selecciona al menos un usuario para eliminar.');
       return;
     }
 
@@ -202,8 +204,8 @@ const UserManagement = () => {
       return;
     }
 
-    setMessage('');
-    setError('');
+    showSuccess(null);
+    showError(null);
     try {
       let successfulDeletes = 0;
       let failedDeletes = 0;
@@ -228,41 +230,41 @@ const UserManagement = () => {
         }
       }
 
-      setMessage(`Eliminación masiva completada: ${successfulDeletes} usuarios eliminados, ${failedDeletes} fallidos.`);
+      showSuccess(`Eliminación masiva completada: ${successfulDeletes} usuarios eliminados, ${failedDeletes} fallidos.`);
       setSelectedUserIds([]);
       fetchUsers();
     } catch (error) {
       console.error("Error performing mass delete:", error);
-      setError(`Fallo al realizar la eliminación masiva: ${error.message}`);
+      showError(`Fallo al realizar la eliminación masiva: ${error.message}`);
     }
   };
 
 
   return (
-    <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
-      <h2 className="text-3xl font-bold text-yellow-500 mb-6">Gestión de Usuarios</h2>
+    <div className={`${darkMode ? 'bg-dark_card text-light_text' : 'bg-gray-800 text-white'} p-6 rounded-lg shadow-lg`}>
+      <h2 className={`text-3xl font-bold mb-6 ${darkMode ? 'text-accent' : 'text-yellow-500'}`}>Gestión de Usuarios</h2>
 
       {/* Formulario para Añadir Usuario */}
-      <div className="mb-8 p-4 bg-gray-700 rounded-lg">
-        <h3 className="text-2xl font-semibold mb-4">Añadir Nuevo Usuario</h3>
+      <div className={`mb-8 p-4 rounded-lg ${darkMode ? 'bg-dark_bg' : 'bg-gray-700'}`}>
+        <h3 className={`text-2xl font-semibold mb-4 ${darkMode ? 'text-light_text' : 'text-white'}`}>Añadir Nuevo Usuario</h3>
         <form onSubmit={handleAddUser} className="space-y-4">
           <div>
-            <label htmlFor="newUserEmail" className="block text-gray-300 text-sm font-bold mb-2">Email:</label>
+            <label htmlFor="newUserEmail" className={`block text-sm font-bold mb-2 ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>Email:</label>
             <input
               type="email"
               id="newUserEmail"
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-gray-900 border-gray-600"
+              className={`shadow appearance-none border rounded w-full py-2 px-3 leading-tight focus:outline-none focus:shadow-outline ${darkMode ? 'bg-dark_card border-dark_border text-light_text' : 'bg-gray-900 border-gray-600 text-gray-700'}`}
               value={newUserEmail}
               onChange={(e) => setNewUserEmail(e.target.value)}
               required
             />
           </div>
           <div>
-            <label htmlFor="newUserPassword" className="block text-gray-300 text-sm font-bold mb-2">Contraseña:</label>
+            <label htmlFor="newUserPassword" className={`block text-sm font-bold mb-2 ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>Contraseña:</label>
             <input
               type="password"
               id="newUserPassword"
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-gray-900 border-gray-600"
+              className={`shadow appearance-none border rounded w-full py-2 px-3 leading-tight focus:outline-none focus:shadow-outline ${darkMode ? 'bg-dark_card border-dark_border text-light_text' : 'bg-gray-900 border-gray-600 text-gray-700'}`}
               value={newUserPassword}
               onChange={(e) => setNewUserPassword(e.target.value)}
               required
@@ -279,14 +281,14 @@ const UserManagement = () => {
 
       {/* Lista de Usuarios */}
       <div className="mb-8">
-        <h3 className="text-2xl font-semibold mb-4">Usuarios Existentes</h3>
+        <h3 className={`text-2xl font-semibold mb-4 ${darkMode ? 'text-light_text' : 'text-white'}`}>Usuarios Existentes</h3>
         {users.length === 0 ? (
-          <p className="text-gray-400">No hay usuarios registrados.</p>
+          <p className={`${darkMode ? 'text-light_text' : 'text-gray-400'}`}>No hay usuarios registrados.</p>
         ) : (
           <>
             {/* Sección de Operaciones Masivas */}
-            <div className="mb-4 p-4 bg-gray-700 rounded-lg shadow-inner flex justify-between items-center">
-              <p className="text-gray-300 text-sm">
+            <div className={`mb-4 p-4 rounded-lg shadow-inner flex justify-between items-center ${darkMode ? 'bg-dark_bg' : 'bg-gray-700'}`}>
+              <p className={`text-sm ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>
                 {selectedUserIds.length} usuario(s) seleccionado(s)
               </p>
               <button
@@ -299,37 +301,37 @@ const UserManagement = () => {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-700">
-                <thead className="bg-gray-700">
+              <table className={`min-w-full divide-y ${darkMode ? 'divide-dark_border' : 'divide-gray-700'}`}>
+                <thead className={`${darkMode ? 'bg-dark_bg' : 'bg-gray-700'}`}>
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                    <th className={`px-4 py-2 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>
                       <input
                         type="checkbox"
-                        className="form-checkbox h-4 w-4 text-yellow-500 bg-gray-700 border-gray-600 rounded"
+                        className={`form-checkbox h-4 w-4 text-yellow-500 rounded ${darkMode ? 'bg-dark_card border-dark_border' : 'bg-gray-700 border-gray-600'}`}
                         onChange={handleSelectAllUsers}
                         checked={selectedUserIds.length === users.length && users.length > 0}
                       />
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Email</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">ID</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Rol</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Acciones</th>
+                    <th className={`px-4 py-2 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>Email</th>
+                    <th className={`px-4 py-2 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>ID</th>
+                    <th className={`px-4 py-2 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>Rol</th>
+                    <th className={`px-4 py-2 text-right text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="bg-gray-800 divide-y divide-gray-700">
+                <tbody className={`${darkMode ? 'bg-dark_card divide-dark_border' : 'bg-gray-800 divide-gray-700'} divide-y`}>
                   {users.map((user) => (
                     <tr key={user.id}>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">
+                      <td className="px-4 py-2 whitespace-nowrap text-sm">
                         <input
                           type="checkbox"
-                          className="form-checkbox h-4 w-4 text-yellow-500 bg-gray-700 border-gray-600 rounded"
+                          className={`form-checkbox h-4 w-4 text-yellow-500 rounded ${darkMode ? 'bg-dark_card border-dark_border' : 'bg-gray-700 border-gray-600'}`}
                           checked={selectedUserIds.includes(user.id)}
                           onChange={() => handleSelectUser(user.id)}
                         />
                       </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">{user.email}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">{user.id}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-300">{user.role || 'user'}</td>
+                      <td className={`px-4 py-2 whitespace-nowrap text-sm ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>{user.email}</td>
+                      <td className={`px-4 py-2 whitespace-nowrap text-sm ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>{user.id}</td>
+                      <td className={`px-4 py-2 whitespace-nowrap text-sm ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>{user.role || 'user'}</td>
                       <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium">
                         <button
                           onClick={() => handleEditClick(user)}
@@ -354,25 +356,25 @@ const UserManagement = () => {
       </div>
       {/* Formulario para Editar Usuario */}
       {editingUser && (
-        <div className="p-4 bg-gray-700 rounded-lg">
-          <h3 className="text-2xl font-semibold mb-4">Editar Usuario: {editingUser.email}</h3>
+        <div className={`p-4 rounded-lg ${darkMode ? 'bg-dark_bg' : 'bg-gray-700'}`}>
+          <h3 className={`text-2xl font-semibold mb-4 ${darkMode ? 'text-light_text' : 'text-white'}`}>Editar Usuario: {editingUser.email}</h3>
           <form onSubmit={handleUpdateUser} className="space-y-4">
             <div>
-              <label htmlFor="editEmail" className="block text-gray-300 text-sm font-bold mb-2">Email:</label>
+              <label htmlFor="editEmail" className={`block text-sm font-bold mb-2 ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>Email:</label>
               <input
                 type="email"
                 id="editEmail"
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-gray-900 border-gray-600"
+                className={`shadow appearance-none border rounded w-full py-2 px-3 leading-tight focus:outline-none focus:shadow-outline ${darkMode ? 'bg-dark_card border-dark_border text-light_text' : 'bg-gray-900 border-gray-600 text-gray-700'}`}
                 value={editEmail}
                 onChange={(e) => setEditEmail(e.target.value)}
                 required
               />
             </div>
             <div>
-              <label htmlFor="editRole" className="block text-gray-300 text-sm font-bold mb-2">Rol:</label>
+              <label htmlFor="editRole" className={`block text-sm font-bold mb-2 ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>Rol:</label>
               <select
                 id="editRole"
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-gray-900 border-gray-600"
+                className={`shadow appearance-none border rounded w-full py-2 px-3 leading-tight focus:outline-none focus:shadow-outline ${darkMode ? 'bg-dark_card border-dark_border text-light_text' : 'bg-gray-900 border-gray-600 text-gray-700'}`}
                 value={editRole}
                 onChange={(e) => setEditRole(e.target.value)}
               >
@@ -381,16 +383,16 @@ const UserManagement = () => {
               </select>
             </div>
             <div>
-              <label htmlFor="editPassword" className="block text-gray-300 text-sm font-bold mb-2">Nueva Contraseña (dejar en blanco para no cambiar):</label>
+              <label htmlFor="editPassword" className={`block text-sm font-bold mb-2 ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>Nueva Contraseña (dejar en blanco para no cambiar):</label>
               <input
                 type="password"
                 id="editPassword"
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-gray-900 border-gray-600"
+                className={`shadow appearance-none border rounded w-full py-2 px-3 leading-tight focus:outline-none focus:shadow-outline ${darkMode ? 'bg-dark_card border-dark_border text-light_text' : 'bg-gray-900 border-gray-600 text-gray-700'}`}
                 value={editPassword}
                 onChange={(e) => setEditPassword(e.target.value)}
                 placeholder="********"
               />
-              <p className="text-xs text-gray-400 mt-1">La contraseña puede ser cambiada aquí.</p>
+              <p className={`text-xs mt-1 ${darkMode ? 'text-light_text' : 'text-gray-400'}`}>La contraseña puede ser cambiada aquí.</p>
             </div>
             <div className="flex justify-end">
               <button

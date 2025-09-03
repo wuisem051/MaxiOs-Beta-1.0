@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../firebase/firebase'; // Importar Firebase Firestore
+import { db } from '../services/firebase'; // Importar Firebase Firestore
 import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
-import { useAuth } from '../AuthContext'; // Importar useAuth
+import { useAuth } from '../context/AuthContext'; // Importar useAuth
 const ConnectionInfo = () => {
   const { currentUser } = useAuth(); // Obtener el usuario actual
   const [poolUrl, setPoolUrl] = useState('No configurado');

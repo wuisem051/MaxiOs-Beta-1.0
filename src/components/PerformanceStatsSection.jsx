@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
-import { db } from '../firebase/firebase'; // Importar Firebase Firestore
+import { db } from '../services/firebase'; // Importar Firebase Firestore
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 
 // Registrar los componentes de Chart.js que se van a usar

@@ -1,12 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { db } from '../firebase/firebase'; // Importar Firebase Firestore
+import React, { useState, useEffect, useRef, useContext } from 'react'; // Importar useContext
+import { db } from '../services/firebase'; // Importar Firebase Firestore
 import { collection, getDocs, onSnapshot, doc, addDoc, updateDoc, deleteDoc, query, where, orderBy } from 'firebase/firestore';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js/auto';
 import { Bar } from 'react-chartjs-2';
+import { ThemeContext } from '../context/ThemeContext'; // Importar ThemeContext
+import { useError } from '../context/ErrorContext'; // Importar useError
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 const MinerManagement = ({ onNewMinerAdded }) => { // Aceptar prop para notificaciones
+  const { darkMode } = useContext(ThemeContext); // Usar ThemeContext
+  const { showError, showSuccess } = useError(); // Usar el contexto de errores
   const [miners, setMiners] = useState([]);
   const [users, setUsers] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -42,10 +46,12 @@ const MinerManagement = ({ onNewMinerAdded }) => { // Aceptar prop para notifica
           setMiners(updatedMiners);
         }, (error) => {
           console.error("MinerManagement: Error subscribing to miners collection:", error);
+          showError('Error al cargar los mineros.');
         });
         return unsubscribe; // Retorna la función de desuscripción
       } catch (error) {
         console.error("MinerManagement: Error fetching initial miners or setting up subscription: ", error);
+        showError('Error al cargar los mineros.');
         return () => {}; // Retorna una función vacía en caso de error para evitar problemas
       }
     };
@@ -57,6 +63,7 @@ const MinerManagement = ({ onNewMinerAdded }) => { // Aceptar prop para notifica
         setUsers(usersData);
       } catch (error) {
         console.error("MinerManagement: Error fetching users for miner management: ", error);
+        showError('Error al cargar los usuarios.');
       }
     };
 
@@ -75,7 +82,7 @@ const MinerManagement = ({ onNewMinerAdded }) => { // Aceptar prop para notifica
         unsubscribeMinersFunction();
       }
     };
-  }, []);
+  }, [onNewMinerAdded, showError]);
 
   // Abrir el modal para editar un minero
   const handleEditClick = (miner) => {
@@ -112,11 +119,11 @@ const MinerManagement = ({ onNewMinerAdded }) => { // Aceptar prop para notifica
       try {
         console.log("MinerManagement: Eliminando minero con ID:", minerId);
         await deleteDoc(doc(db, 'miners', minerId));
-        alert('Minero eliminado exitosamente.');
+        showSuccess('Minero eliminado exitosamente.');
         console.log("MinerManagement: Minero eliminado exitosamente.");
       } catch (error) {
         console.error("MinerManagement: Error deleting miner: ", error);
-        alert(`Error al eliminar minero: ${error.message}`);
+        showError(`Error al eliminar minero: ${error.message}`);
       }
     }
   };
@@ -138,17 +145,17 @@ const MinerManagement = ({ onNewMinerAdded }) => { // Aceptar prop para notifica
       setNewMinerWorkerName('');
       setNewMinerHashrate(0);
       setNewMinerStatus('inactivo');
-      alert('Minero actualizado exitosamente.');
+      showSuccess('Minero actualizado exitosamente.');
       console.log("MinerManagement: Minero actualizado exitosamente.");
     } catch (error) {
       console.error("MinerManagement: Error updating miner: ", error);
-      alert(`Error al actualizar minero: ${error.message}`);
+      showError(`Error al actualizar minero: ${error.message}`);
     }
   };
 
   const handleAddNewMiner = async () => {
     if (!newMinerUserId.trim() || !newMinerWorkerName.trim()) {
-      alert('El ID de usuario y el nombre del worker no pueden estar vacíos.');
+      showError('El ID de usuario y el nombre del worker no pueden estar vacíos.');
       console.log("MinerManagement: Intento de añadir minero fallido: campos vacíos.");
       return;
     }
@@ -168,10 +175,10 @@ const MinerManagement = ({ onNewMinerAdded }) => { // Aceptar prop para notifica
       setNewMinerWorkerName('');
       setNewMinerHashrate(0);
       setNewMinerStatus('inactivo');
-      alert('Minero añadido exitosamente.');
+      showSuccess('Minero añadido exitosamente.');
     } catch (error) {
       console.error("MinerManagement: Error adding miner: ", error);
-      alert(`Error al añadir minero: ${error.message}`);
+      showError(`Error al añadir minero: ${error.message}`);
     }
   };
 
@@ -216,11 +223,11 @@ const MinerManagement = ({ onNewMinerAdded }) => { // Aceptar prop para notifica
         const deletePromises = selectedMiners.map(minerId => deleteDoc(doc(db, 'miners', minerId)));
         await Promise.all(deletePromises);
         setSelectedMiners([]); // Limpiar selección después de eliminar
-        alert('Mineros eliminados exitosamente.');
+        showSuccess('Mineros eliminados exitosamente.');
         console.log("MinerManagement: Mineros eliminados exitosamente.");
       } catch (error) {
         console.error("MinerManagement: Error deleting selected miners: ", error);
-        alert(`Error al eliminar mineros seleccionados: ${error.message}`);
+        showError(`Error al eliminar mineros seleccionados: ${error.message}`);
       }
     }
   };
@@ -245,19 +252,19 @@ const MinerManagement = ({ onNewMinerAdded }) => { // Aceptar prop para notifica
   console.log("Mineros filtrados y paginados (currentMiners):", currentMiners); // Log para depuración
 
   return (
-    <div className="bg-gray-800 p-6 rounded-lg">
+    <div className={`${darkMode ? 'bg-dark_card text-light_text' : 'bg-gray-800 text-white'} p-6 rounded-lg`}>
       <h2 className="text-2xl font-semibold mb-4">Gestión de Mineros</h2>
       
       {/* Formulario para añadir nuevo minero */}
       {/* Formulario para añadir nuevo minero */}
       <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
         <div>
-          <label htmlFor="newMinerUserId" className="block text-sm font-medium text-gray-300 mb-1">ID de Usuario:</label>
+          <label htmlFor="newMinerUserId" className={`block text-sm font-medium mb-1 ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>ID de Usuario:</label>
           <select
             id="newMinerUserId"
             value={newMinerUserId}
             onChange={(e) => setNewMinerUserId(e.target.value)}
-            className="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm sm:text-sm p-2 text-white"
+            className={`w-full rounded-md shadow-sm sm:text-sm p-2 ${darkMode ? 'bg-dark_bg border-dark_border text-light_text' : 'bg-gray-700 border-gray-600 text-white'}`}
           >
             <option value="">Selecciona un Usuario</option>
             {users.map(user => (
@@ -266,18 +273,18 @@ const MinerManagement = ({ onNewMinerAdded }) => { // Aceptar prop para notifica
           </select>
         </div>
         <div>
-          <label htmlFor="newMinerWorkerName" className="block text-sm font-medium text-gray-300 mb-1">Nombre del Worker:</label>
+          <label htmlFor="newMinerWorkerName" className={`block text-sm font-medium mb-1 ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>Nombre del Worker:</label>
           <input
             type="text"
             id="newMinerWorkerName"
             value={newMinerWorkerName}
             onChange={(e) => setNewMinerWorkerName(e.target.value)}
             placeholder="Ej: worker01 o wuisem.345076"
-            className="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm sm:text-sm p-2 text-white"
+            className={`w-full rounded-md shadow-sm sm:text-sm p-2 ${darkMode ? 'bg-dark_bg border-dark_border text-light_text' : 'bg-gray-700 border-gray-600 text-white'}`}
           />
         </div>
         <div>
-          <label htmlFor="newMinerHashrate" className="block text-sm font-medium text-gray-300 mb-1">Hashrate (TH/s):</label>
+          <label htmlFor="newMinerHashrate" className={`block text-sm font-medium mb-1 ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>Hashrate (TH/s):</label>
           <input
             type="number"
             id="newMinerHashrate"
@@ -285,16 +292,16 @@ const MinerManagement = ({ onNewMinerAdded }) => { // Aceptar prop para notifica
             onChange={(e) => setNewMinerHashrate(parseFloat(e.target.value))}
             placeholder="0"
             step="0.01"
-            className="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm sm:text-sm p-2 text-white"
+            className={`w-full rounded-md shadow-sm sm:text-sm p-2 ${darkMode ? 'bg-dark_bg border-dark_border text-light_text' : 'bg-gray-700 border-gray-600 text-white'}`}
           />
         </div>
         <div>
-          <label htmlFor="newMinerStatus" className="block text-sm font-medium text-gray-300 mb-1">Estado:</label>
+          <label htmlFor="newMinerStatus" className={`block text-sm font-medium mb-1 ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>Estado:</label>
           <select
             id="newMinerStatus"
             value={newMinerStatus}
             onChange={(e) => setNewMinerStatus(e.target.value)}
-            className="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm sm:text-sm p-2 text-white"
+            className={`w-full rounded-md shadow-sm sm:text-sm p-2 ${darkMode ? 'bg-dark_bg border-dark_border text-light_text' : 'bg-gray-700 border-gray-600 text-white'}`}
           >
             <option value="activo">Activo</option>
             <option value="inactivo">Inactivo</option>
@@ -318,12 +325,12 @@ const MinerManagement = ({ onNewMinerAdded }) => { // Aceptar prop para notifica
           placeholder="Buscar por nombre de worker o ID de usuario..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full md:w-2/3 bg-gray-700 border-gray-600 rounded-md shadow-sm sm:text-sm p-2 text-white"
+          className={`w-full md:w-2/3 rounded-md shadow-sm sm:text-sm p-2 ${darkMode ? 'bg-dark_bg border-dark_border text-light_text' : 'bg-gray-700 border-gray-600 text-white'}`}
         />
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="w-full md:w-1/3 bg-gray-700 border-gray-600 rounded-md shadow-sm sm:text-sm p-2 text-white"
+          className={`w-full md:w-1/3 rounded-md shadow-sm sm:text-sm p-2 ${darkMode ? 'bg-dark_bg border-dark_border text-light_text' : 'bg-gray-700 border-gray-600 text-white'}`}
         >
           <option value="all">Todos los estados</option>
           <option value="activo">Activo</option>
@@ -333,10 +340,10 @@ const MinerManagement = ({ onNewMinerAdded }) => { // Aceptar prop para notifica
       </div>
 
       <div className="overflow-x-auto rounded-lg shadow-md">
-        <table className="min-w-full divide-y divide-gray-700">
-          <thead className="bg-gray-700">
+        <table className={`min-w-full divide-y ${darkMode ? 'divide-dark_border' : 'divide-gray-700'}`}>
+          <thead className={`${darkMode ? 'bg-dark_bg' : 'bg-gray-700'}`}>
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+              <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>
                 <input
                   type="checkbox"
                   className="form-checkbox h-4 w-4 text-blue-600 transition duration-150 ease-in-out"
@@ -344,16 +351,16 @@ const MinerManagement = ({ onNewMinerAdded }) => { // Aceptar prop para notifica
                   checked={currentMiners.length > 0 && selectedMiners.length === currentMiners.length}
                 />
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Usuario (Email)</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Nombre del Worker</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Hashrate (TH/s)</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Estado</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Acciones</th>
+              <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>Usuario (Email)</th>
+              <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>Nombre del Worker</th>
+              <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>Hashrate (TH/s)</th>
+              <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>Estado</th>
+              <th className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>Acciones</th>
             </tr>
           </thead>
-          <tbody className="bg-gray-800 divide-y divide-gray-700">
+          <tbody className={`${darkMode ? 'bg-dark_card divide-dark_border' : 'bg-gray-800 divide-gray-700'} divide-y`}>
             {currentMiners.map((miner) => (
-              <tr key={miner.id} className="hover:bg-gray-700 transition-colors duration-200">
+              <tr key={miner.id} className={`${darkMode ? 'hover:bg-dark_border' : 'hover:bg-gray-700'} transition-colors duration-200`}>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <input
                     type="checkbox"
@@ -362,11 +369,11 @@ const MinerManagement = ({ onNewMinerAdded }) => { // Aceptar prop para notifica
                     onChange={() => handleSelectMiner(miner.id)}
                   />
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>
                   {users.find(user => user.id === miner.userId)?.email || miner.userId}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{miner.workerName}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{miner.currentHashrate ? miner.currentHashrate.toFixed(2) : '0.00'}</td>
+                <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>{miner.workerName}</td>
+                <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>{miner.currentHashrate ? miner.currentHashrate.toFixed(2) : '0.00'}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                     miner.status === 'activo' ? 'bg-green-100 text-green-800' :
@@ -394,7 +401,7 @@ const MinerManagement = ({ onNewMinerAdded }) => { // Aceptar prop para notifica
             ))}
             {currentMiners.length === 0 && (
               <tr>
-                <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-400">No se encontraron mineros.</td>
+                <td colSpan="6" className={`px-6 py-4 text-center text-sm ${darkMode ? 'text-light_text' : 'text-gray-400'}`}>No se encontraron mineros.</td>
               </tr>
             )}
           </tbody>
@@ -421,10 +428,10 @@ const MinerManagement = ({ onNewMinerAdded }) => { // Aceptar prop para notifica
               <button
                 key={number + 1}
                 onClick={() => paginate(number + 1)}
-                className={`relative inline-flex items-center px-4 py-2 border border-gray-700 text-sm font-medium ${
+                className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
                   currentPage === number + 1
                     ? 'bg-blue-600 text-white'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    : (darkMode ? 'bg-dark_bg border-dark_border text-light_text hover:bg-dark_border' : 'bg-gray-700 border-gray-700 text-gray-300 hover:bg-gray-600')
                 } transition-colors duration-200`}
               >
                 {number + 1}
@@ -435,13 +442,13 @@ const MinerManagement = ({ onNewMinerAdded }) => { // Aceptar prop para notifica
       )}
 
       {/* Gráfica de Estado de Mineros */}
-      <div className="mt-8 bg-gray-800 p-6 rounded-lg shadow-md">
-        <h3 className="text-xl font-semibold text-white mb-4">Estado de Mineros</h3>
+      <div className={`mt-8 p-6 rounded-lg shadow-md ${darkMode ? 'bg-dark_card' : 'bg-gray-800'}`}>
+        <h3 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-light_text' : 'text-white'}`}>Estado de Mineros</h3>
         <div className="h-64">
           {miners.length > 0 ? (
             <Bar data={chartData} options={{ maintainAspectRatio: false, responsive: true }} />
           ) : (
-            <p className="text-gray-400 text-center py-8">No hay datos de mineros para mostrar en la gráfica.</p>
+            <p className={`${darkMode ? 'text-light_text' : 'text-gray-400'} text-center py-8`}>No hay datos de mineros para mostrar en la gráfica.</p>
           )}
         </div>
       </div>
@@ -449,17 +456,17 @@ const MinerManagement = ({ onNewMinerAdded }) => { // Aceptar prop para notifica
       {/* Modal de Edición */}
       {isModalOpen && editingMiner && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md">
+          <div className={`${darkMode ? 'bg-dark_card text-light_text' : 'bg-gray-800 text-white'} p-8 rounded-lg shadow-xl w-full max-w-md`}>
             <h2 className="text-2xl font-bold mb-4">Editar Minero</h2>
             <div className="space-y-4">
               <div>
-                <label htmlFor="editMinerUserId" className="block text-sm font-medium text-gray-300">ID de Usuario</label>
+                <label htmlFor="editMinerUserId" className={`block text-sm font-medium ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>ID de Usuario</label>
                 <select
                   id="editMinerUserId"
                   name="userId"
                   value={newMinerUserId}
                   onChange={handleMinerEditChange}
-                  className="w-full bg-gray-700 border-gray-600 rounded-md shadow-sm sm:text-sm p-2 text-white"
+                  className={`w-full rounded-md shadow-sm sm:text-sm p-2 ${darkMode ? 'bg-dark_bg border-dark_border text-light_text' : 'bg-gray-700 border-gray-600 text-white'}`}
                 >
                   <option value="">Selecciona un Usuario</option>
                   {users.map(user => (
@@ -468,18 +475,18 @@ const MinerManagement = ({ onNewMinerAdded }) => { // Aceptar prop para notifica
                 </select>
               </div>
               <div>
-                <label htmlFor="editWorkerName" className="block text-sm font-medium text-gray-300">Nombre del Worker</label>
+                <label htmlFor="editWorkerName" className={`block text-sm font-medium ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>Nombre del Worker</label>
                 <input
                   type="text"
                   name="workerName"
                   id="editWorkerName"
                   value={newMinerWorkerName}
                   onChange={handleMinerEditChange}
-                  className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md p-2 text-white"
+                  className={`mt-1 block w-full rounded-md p-2 ${darkMode ? 'bg-dark_bg border-dark_border text-light_text' : 'bg-gray-700 border-gray-600 text-white'}`}
                 />
               </div>
               <div>
-                <label htmlFor="editCurrentHashrate" className="block text-sm font-medium text-gray-300">Hashrate (TH/s)</label>
+                <label htmlFor="editCurrentHashrate" className={`block text-sm font-medium ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>Hashrate (TH/s)</label>
                 <input
                   type="number"
                   name="currentHashrate"
@@ -487,17 +494,17 @@ const MinerManagement = ({ onNewMinerAdded }) => { // Aceptar prop para notifica
                   value={newMinerHashrate}
                   onChange={handleMinerEditChange}
                   step="0.01"
-                  className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md p-2 text-white"
+                  className={`mt-1 block w-full rounded-md p-2 ${darkMode ? 'bg-dark_bg border-dark_border text-light_text' : 'bg-gray-700 border-gray-600 text-white'}`}
                 />
               </div>
               <div>
-                <label htmlFor="editStatus" className="block text-sm font-medium text-gray-300">Estado</label>
+                <label htmlFor="editStatus" className={`block text-sm font-medium ${darkMode ? 'text-light_text' : 'text-gray-300'}`}>Estado</label>
                 <select
                   name="status"
                   id="editStatus"
                   value={newMinerStatus}
                   onChange={handleMinerEditChange}
-                  className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md p-2 text-white"
+                  className={`mt-1 block w-full rounded-md p-2 ${darkMode ? 'bg-dark_bg border-dark_border text-light_text' : 'bg-gray-700 border-gray-600 text-white'}`}
                 >
                   <option value="activo">Activo</option>
                   <option value="inactivo">Inactivo</option>

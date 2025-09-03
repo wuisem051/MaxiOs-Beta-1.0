@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react'; // Importar useContext
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { ThemeContext } from '../context/ThemeContext'; // Importar ThemeContext
 import MinerManagement from '../components/MinerManagement';
 import PoolConfiguration from '../components/PoolConfiguration';
 import UserManagement from '../components/UserManagement';
@@ -14,6 +15,7 @@ import BalanceManagement from '../components/BalanceManagement';
 import SiteSettingsContent from '../components/SiteSettingsContent'; // Importar el nuevo componente
 
 const AdminPanel = () => {
+  const { darkMode } = useContext(ThemeContext); // Usar ThemeContext
   const location = useLocation();
   const [unreadContactRequests, setUnreadContactRequests] = useState(0);
   const [unreadWithdrawalRequests, setUnreadWithdrawalRequests] = useState(0);
@@ -43,17 +45,19 @@ const AdminPanel = () => {
   console.log("AdminPanel: Renderizando. unreadMinersCount:", unreadMinersCount);
 
   return (
-    <div className="flex h-screen bg-gray-900 text-white">
+    <div className={`flex h-screen ${darkMode ? 'bg-dark_bg text-light_text' : 'bg-gray-900 text-white'}`}>
       {/* Sidebar de Navegación */}
-      <aside className="w-64 bg-gray-800 p-2 shadow-lg">
-        <div className="text-xl font-bold text-yellow-500 mb-6">Admin Dashboard (Actualizado)</div> {/* Título actualizado */}
+      <aside className={`w-64 p-2 shadow-lg ${darkMode ? 'bg-dark_card' : 'bg-gray-800'}`}>
+        <div className={`text-xl font-bold text-yellow-500 mb-6 ${darkMode ? 'text-accent' : 'text-yellow-500'}`}>Admin Dashboard (Actualizado)</div> {/* Título actualizado */}
         <nav>
           <ul>
             <li className="mb-0.5">
               <Link 
                 to="/admin/miners" 
                 className={`flex items-center py-1.5 rounded-lg text-sm font-medium ${
-                  location.pathname === '/admin/miners' ? 'bg-yellow-600 text-white' : 'text-gray-300 hover:bg-gray-700'
+                  location.pathname === '/admin/miners' 
+                    ? 'bg-accent text-white' 
+                    : (darkMode ? 'text-light_text hover:bg-dark_border' : 'text-gray-300 hover:bg-gray-700')
                 }`}
                 onClick={handleClearMinerNotification} // Limpiar notificación al hacer clic
               >
@@ -69,7 +73,9 @@ const AdminPanel = () => {
               <Link 
                 to="/admin/pool-config" 
                 className={`flex items-center py-1.5 rounded-lg text-sm font-medium ${
-                  location.pathname === '/admin/pool-config' ? 'bg-yellow-600 text-white' : 'text-gray-300 hover:bg-gray-700'
+                  location.pathname === '/admin/pool-config' 
+                    ? 'bg-accent text-white' 
+                    : (darkMode ? 'text-light_text hover:bg-dark_border' : 'text-gray-300 hover:bg-gray-700')
                 }`}
               >
                 Configuración del Pool
@@ -79,7 +85,9 @@ const AdminPanel = () => {
               <Link 
                 to="/admin/users" 
                 className={`flex items-center py-1.5 rounded-lg text-sm font-medium ${
-                  location.pathname === '/admin/users' ? 'bg-yellow-600 text-white' : 'text-gray-300 hover:bg-gray-700'
+                  location.pathname === '/admin/users' 
+                    ? 'bg-accent text-white' 
+                    : (darkMode ? 'text-light_text hover:bg-dark_border' : 'text-gray-300 hover:bg-gray-700')
                 }`}
               >
                 Gestión de Usuarios
@@ -89,7 +97,9 @@ const AdminPanel = () => {
               <Link 
                 to="/admin/profitability-settings" 
                 className={`flex items-center py-1.5 rounded-lg text-sm font-medium ${
-                  location.pathname === '/admin/profitability-settings' ? 'bg-yellow-600 text-white' : 'text-gray-300 hover:bg-gray-700'
+                  location.pathname === '/admin/profitability-settings' 
+                    ? 'bg-accent text-white' 
+                    : (darkMode ? 'text-light_text hover:bg-dark_border' : 'text-gray-300 hover:bg-gray-700')
                 }`}
               >
                 Configuración de Rentabilidad
@@ -99,7 +109,9 @@ const AdminPanel = () => {
               <Link 
                 to="/admin/pool-arbitrage" 
                 className={`flex items-center py-1.5 rounded-lg text-sm font-medium ${
-                  location.pathname === '/admin/pool-arbitrage' ? 'bg-yellow-600 text-white' : 'text-gray-300 hover:bg-gray-700'
+                  location.pathname === '/admin/pool-arbitrage' 
+                    ? 'bg-accent text-white' 
+                    : (darkMode ? 'text-light_text hover:bg-dark_border' : 'text-gray-300 hover:bg-gray-700')
                 }`}
               >
                 Arbitraje de Pools
@@ -109,7 +121,9 @@ const AdminPanel = () => {
               <Link 
                 to="/admin/backup" 
                 className={`flex items-center py-1.5 rounded-lg text-sm font-medium ${
-                  location.pathname === '/admin/backup' ? 'bg-yellow-600 text-white' : 'text-gray-300 hover:bg-gray-700'
+                  location.pathname === '/admin/backup' 
+                    ? 'bg-accent text-white' 
+                    : (darkMode ? 'text-light_text hover:bg-dark_border' : 'text-gray-300 hover:bg-gray-700')
                 }`}
               >
                 Respaldo de Datos
@@ -119,7 +133,9 @@ const AdminPanel = () => {
               <Link 
                 to="/admin/news" 
                 className={`flex items-center py-1.5 rounded-lg text-sm font-medium ${
-                  location.pathname === '/admin/news' ? 'bg-yellow-600 text-white' : 'text-gray-300 hover:bg-gray-700'
+                  location.pathname === '/admin/news' 
+                    ? 'bg-accent text-white' 
+                    : (darkMode ? 'text-light_text hover:bg-dark_border' : 'text-gray-300 hover:bg-gray-700')
                 }`}
               >
                 Gestión de Noticias
@@ -129,7 +145,9 @@ const AdminPanel = () => {
               <Link 
                 to="/admin/content" 
                 className={`flex items-center py-1.5 rounded-lg text-sm font-medium ${
-                  location.pathname === '/admin/content' ? 'bg-yellow-600 text-white' : 'text-gray-300 hover:bg-gray-700'
+                  location.pathname === '/admin/content' 
+                    ? 'bg-accent text-white' 
+                    : (darkMode ? 'text-light_text hover:bg-dark_border' : 'text-gray-300 hover:bg-gray-700')
                 }`}
               >
                 Gestión de Contenido
@@ -139,7 +157,9 @@ const AdminPanel = () => {
               <Link 
                 to="/admin/contact-requests" 
                 className={`flex items-center py-1.5 rounded-lg text-sm font-medium ${
-                  location.pathname === '/admin/contact-requests' ? 'bg-yellow-600 text-white' : 'text-gray-300 hover:bg-gray-700'
+                  location.pathname === '/admin/contact-requests' 
+                    ? 'bg-accent text-white' 
+                    : (darkMode ? 'text-light_text hover:bg-dark_border' : 'text-gray-300 hover:bg-gray-700')
                 }`}
               >
                 Solicitudes de Contacto
@@ -154,7 +174,9 @@ const AdminPanel = () => {
               <Link 
                 to="/admin/withdrawal-requests" 
                 className={`flex items-center py-1.5 rounded-lg text-sm font-medium ${
-                  location.pathname === '/admin/withdrawal-requests' ? 'bg-yellow-600 text-white' : 'text-gray-300 hover:bg-gray-700'
+                  location.pathname === '/admin/withdrawal-requests' 
+                    ? 'bg-accent text-white' 
+                    : (darkMode ? 'text-light_text hover:bg-dark_border' : 'text-gray-300 hover:bg-gray-700')
                 }`}
               >
                 Solicitudes de Pago
@@ -169,7 +191,9 @@ const AdminPanel = () => {
               <Link 
                 to="/admin/balance-management" 
                 className={`flex items-center py-1.5 rounded-lg text-sm font-medium ${
-                  location.pathname === '/admin/balance-management' ? 'bg-yellow-600 text-white' : 'text-gray-300 hover:bg-gray-700'
+                  location.pathname === '/admin/balance-management' 
+                    ? 'bg-accent text-white' 
+                    : (darkMode ? 'text-light_text hover:bg-dark_border' : 'text-gray-300 hover:bg-gray-700')
                 }`}
               >
                 Gestión de Balance
@@ -179,7 +203,9 @@ const AdminPanel = () => {
               <Link 
                 to="/admin/site-settings" 
                 className={`flex items-center py-1.5 rounded-lg text-sm font-medium ${
-                  location.pathname === '/admin/site-settings' ? 'bg-yellow-600 text-white' : 'text-gray-300 hover:bg-gray-700'
+                  location.pathname === '/admin/site-settings' 
+                    ? 'bg-accent text-white' 
+                    : (darkMode ? 'text-light_text hover:bg-dark_border' : 'text-gray-300 hover:bg-gray-700')
                 }`}
               >
                 Configuración del Sitio
@@ -191,7 +217,7 @@ const AdminPanel = () => {
 
       {/* Contenido Principal */}
       <main className="flex-1 p-8 overflow-y-auto">
-        <h1 className="text-4xl font-bold mb-8">Panel de Administración</h1>
+        <h1 className={`text-4xl font-bold mb-8 ${darkMode ? 'text-light_text' : 'text-white'}`}>Panel de Administración</h1>
         <Routes>
           <Route 
             path="miners" 
@@ -216,9 +242,9 @@ const AdminPanel = () => {
           <Route path="site-settings" element={<SiteSettingsContent />} /> {/* Nueva ruta para Configuración del Sitio */}
           {/* Ruta por defecto o dashboard overview */}
           <Route path="/" element={
-            <div className="bg-gray-800 p-6 rounded-lg">
+            <div className={`${darkMode ? 'bg-dark_card text-light_text' : 'bg-gray-800 text-gray-300'} p-6 rounded-lg`}>
               <h2 className="text-2xl font-semibold mb-4">Bienvenido al Panel de Administración</h2>
-              <p className="text-gray-300">Selecciona una opción del menú lateral para empezar a administrar el sitio.</p>
+              <p>Selecciona una opción del menú lateral para empezar a administrar el sitio.</p>
             </div>
           } />
         </Routes>

@@ -1,7 +1,7 @@
 [build]
   command = "npm run build"
   publish = "build"
-  environment = { NODE_VERSION = "18" }
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

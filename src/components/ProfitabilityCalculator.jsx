@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../firebase/firebase'; // Importar Firebase Firestore
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../services/firebase'; // Importar Firebase Firestore
+import { doc, getDoc } from 'firebase/firestore'; // Importar doc y getDoc
 
 const ProfitabilityCalculator = () => {
   const [hashrate, setHashrate] = useState(1);
@@ -41,6 +41,11 @@ const ProfitabilityCalculator = () => {
     }
   };
 
+  // Calcular vista previa para mostrar los valores de configuración
+  const preview1THs = fixedRatePerTHs;
+  const preview10THs = fixedRatePerTHs * 10;
+  const previewCommission = fixedPoolCommission;
+
   const calculateProfitability = () => {
     const dailyConsumptionKWH = (consumption * 24) / 1000;
     const calculatedDailyElectricCost = dailyConsumptionKWH * costPerKWH;
@@ -75,10 +80,11 @@ const ProfitabilityCalculator = () => {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const q = query(collection(db, 'settings'), where('key', '==', 'profitability'));
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-          const data = querySnapshot.docs[0].data();
+        const docRef = doc(db, 'settings', 'profitability'); // Referencia al documento profitability
+        const docSnap = await getDoc(docRef); // Obtener el documento
+
+        if (docSnap.exists()) {
+          const data = docSnap.data();
           setFixedRatePerTHs(data.fixedRatePerTHs || 0.06);
           setFixedPoolCommission(data.fixedPoolCommission || 1);
           setUseFixedRate(data.useFixedRate || false);
@@ -106,7 +112,7 @@ const ProfitabilityCalculator = () => {
     <div className="p-6 bg-light_card text-dark_text rounded-lg shadow-lg max-w-4xl mx-auto my-8">
       <h2 className="text-3xl font-bold text-center mb-6">Calculadora de Rentabilidad</h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Datos de Entrada */}
         <div className="bg-gray-100 p-6 rounded-lg shadow-sm border border-gray_border">
           <h3 className="text-xl font-semibold mb-4 flex items-center">
@@ -149,6 +155,33 @@ const ProfitabilityCalculator = () => {
           >
             Calcular
           </button>
+        </div>
+
+        {/* Configuración de Rentabilidad Actual */}
+        <div className="bg-gray-100 p-6 rounded-lg shadow-sm border border-gray_border">
+          <h3 className="text-xl font-semibold mb-4 flex items-center">
+            <span className="mr-2">⚙️</span> Configuración Actual
+          </h3>
+          <div className="mb-4">
+            <p className="text-gray_text">Tasa Fija por TH/s:</p>
+            <p className="text-lg font-bold text-dark_text">${fixedRatePerTHs.toFixed(4)} USD/día</p>
+          </div>
+          <div className="mb-4">
+            <p className="text-gray_text">Comisión de la Pool:</p>
+            <p className="text-lg font-bold text-dark_text">{fixedPoolCommission.toFixed(1)}%</p>
+          </div>
+          <div className="mb-6">
+            <p className="text-gray_text">Uso de Tasa Fija:</p>
+            <p className="text-lg font-bold text-dark_text">{useFixedRate ? 'Sí' : 'No'}</p>
+          </div>
+          <div className="mt-auto pt-4 border-t border-gray_border">
+            <h3 className="text-lg font-semibold mb-2 text-accent">Vista previa del cálculo:</h3>
+            <ul className="list-disc list-inside text-gray_text">
+              <li>1 TH/s = ${preview1THs.toFixed(4)} USD/día</li>
+              <li>10 TH/s = ${preview10THs.toFixed(4)} USD/día</li>
+              <li>Comisión: {previewCommission.toFixed(1)}%</li>
+            </ul>
+          </div>
         </div>
 
         {/* Ganancias a Corto Plazo */}

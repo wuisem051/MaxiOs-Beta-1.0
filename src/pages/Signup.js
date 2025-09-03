@@ -1,32 +1,40 @@
 import React, { useRef, useState } from 'react';
-import { useAuth } from '../AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useError } from '../context/ErrorContext'; // Importar useError
+import sanitizeInput from '../utils/sanitizeInput'; // Importar la función de sanitización
 
 const Signup = () => {
   const emailRef = useRef();
   const passwordRef = useRef();
   const passwordConfirmRef = useRef();
   const { signup } = useAuth();
-  const [error, setError] = useState('');
+  const { showError, showSuccess } = useError(); // Usar el contexto de errores
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   async function handleSubmit(e) {
     e.preventDefault();
 
-    if (passwordRef.current.value !== passwordConfirmRef.current.value) {
-      return setError('Las contraseñas no coinciden');
+    // Sanitizar las entradas antes de usarlas
+    const sanitizedEmail = sanitizeInput(emailRef.current.value);
+    const sanitizedPassword = sanitizeInput(sanitizeInput(passwordRef.current.value));
+    const sanitizedPasswordConfirm = sanitizeInput(passwordConfirmRef.current.value);
+
+    if (sanitizedPassword !== sanitizedPasswordConfirm) {
+      return showError('Las contraseñas no coinciden');
     }
 
     try {
-      setError('');
+      showError(null); // Limpiar errores previos
+      showSuccess(null); // Limpiar mensajes de éxito previos
       setLoading(true);
-      await signup(emailRef.current.value, passwordRef.current.value);
-      setError('Cuenta creada exitosamente. Por favor, inicia sesión.');
+      await signup(sanitizedEmail, sanitizedPassword);
+      showSuccess('Cuenta creada exitosamente. Por favor, inicia sesión.');
       // navigate('/login'); // Redirigir a login después del registro
     } catch (e) {
       console.error("Error en el proceso de registro:", e);
-      setError('Fallo al crear la cuenta. ' + e.message);
+      showError('Fallo al crear la cuenta. ' + e.message);
     } finally {
       setLoading(false);
     }
@@ -40,7 +48,7 @@ const Signup = () => {
             Crear una cuenta
           </h2>
         </div>
-        {error && <div className="bg-red-500 text-white p-3 rounded">{error}</div>}
+        {/* Los mensajes de error y éxito ahora se manejan globalmente */}
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
             <div>

@@ -6,7 +6,7 @@ import StatsSection from '../components/StatsSection';
 import NewsSection from '../components/NewsSection';
 import ProfitabilityCalculator from '../components/ProfitabilityCalculator';
 import PerformanceStatsSection from '../components/PerformanceStatsSection'; // Importar el nuevo componente
-import { db } from '../firebase/firebase'; // Importar db desde firebase.js
+import { db } from '../services/firebase'; // Importar db desde firebase.js
 import { collection, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
 
 const Home = () => {

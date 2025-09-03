@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../firebase/firebase';
+import { db } from '../services/firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 
 const NewsSection = () => {

@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react'; // Importar useContext
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../AuthContext';
-import { db } from '../firebase/firebase'; // Importar Firebase Firestore
+import { useAuth } from '../../context/AuthContext';
+import { ThemeContext } from '../../context/ThemeContext'; // Importar ThemeContext
+import { db } from '../../services/firebase'; // Importar Firebase Firestore
 import { doc, getDoc } from 'firebase/firestore';
+
 const Header = () => {
   const { currentUser, logout } = useAuth();
+  const { darkMode, setDarkMode, theme } = useContext(ThemeContext); // Usar ThemeContext y theme
   const navigate = useNavigate();
   const location = useLocation(); // Obtener la ubicación actual
   const [isOpen, setIsOpen] = useState(false); // Estado para el menú móvil
@@ -39,23 +42,30 @@ const Header = () => {
     }
   }
 
+  const toggleDarkMode = () => {
+    setDarkMode(!darkMode);
+  };
+
   return (
-    <header className="bg-light_card shadow-md">
+    <header className={`shadow-md ${theme.backgroundAlt} ${theme.text}`}> {/* Aplicar clases de tema */}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo y botón de modo dev */}
           <div className="flex items-center">
-            <Link to="/" className="flex-shrink-0 text-dark_text text-xl font-bold mr-4">
+            <Link to="/" className={`flex-shrink-0 text-xl font-bold mr-4 ${theme.text}`}> {/* Aplicar clases de tema */}
               <span className="text-accent">{siteName.charAt(0)}</span>{siteName.substring(1)}
             </Link>
-            <Link 
-              to="/admin-login" 
-              className={`block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 ${
-                location.pathname === '/admin-login' ? 'bg-blue_link text-white' : 'text-blue_link hover:bg-gray_border hover:text-dark_text'
+            {/* Botón para alternar modo oscuro/claro (desactivado temporalmente) */}
+            {/*
+            <button 
+              onClick={toggleDarkMode} 
+              className={`ml-4 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
+                darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
               }`}
             >
-              Iniciar Modo Dev
-            </Link>
+              {darkMode ? 'Modo Claro' : 'Modo Oscuro'}
+            </button>
+            */}
           </div>
 
           {/* Navegación principal (Desktop) */}
@@ -63,7 +73,9 @@ const Header = () => {
             <Link 
               to="/" 
               className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                location.pathname === '/' && location.hash === '' ? 'bg-accent text-white' : 'text-gray_text hover:bg-gray_border hover:text-dark_text'
+                location.pathname === '/' && location.hash === '' 
+                  ? 'bg-accent text-white' 
+                  : `${theme.textSoft} hover:${theme.backgroundAlt} hover:${theme.text}`
               }`}
             >
               Estadísticas
@@ -73,14 +85,18 @@ const Header = () => {
                 <Link 
                   to="/user/dashboard" 
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                    location.pathname.startsWith('/user') ? 'bg-accent text-white' : 'text-gray_text hover:bg-gray_border hover:text-dark_text'
+                    location.pathname.startsWith('/user') 
+                      ? 'bg-accent text-white' 
+                      : `${theme.textSoft} hover:${theme.backgroundAlt} hover:${theme.text}`
                   }`}
                 >
                   Panel de Usuario
                 </Link>
                 <button 
                   onClick={handleLogout} 
-                  className="px-3 py-2 rounded-md text-sm font-medium text-gray_text hover:bg-gray_border hover:text-dark_text transition-colors duration-200"
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
+                    `${theme.textSoft} hover:${theme.backgroundAlt} hover:${theme.text}`
+                  }`}
                 >
                   Cerrar Sesión
                 </button>
@@ -90,7 +106,9 @@ const Header = () => {
                 <Link 
                   to="/signup" 
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                    location.pathname === '/signup' ? 'bg-accent text-white' : 'text-gray_text hover:bg-gray_border hover:text-dark_text'
+                    location.pathname === '/signup' 
+                      ? 'bg-accent text-white' 
+                      : `${theme.textSoft} hover:${theme.backgroundAlt} hover:${theme.text}`
                   }`}
                 >
                   Registrarse
@@ -98,7 +116,9 @@ const Header = () => {
                 <Link 
                   to="/login" 
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                    location.pathname === '/login' ? 'bg-accent text-white' : 'text-gray_text hover:bg-gray_border hover:text-dark_text'
+                    location.pathname === '/login' 
+                      ? 'bg-accent text-white' 
+                      : `${theme.textSoft} hover:${theme.backgroundAlt} hover:${theme.text}`
                   }`}
                 >
                   Iniciar Sesión
@@ -112,7 +132,9 @@ const Header = () => {
             <button
               onClick={() => setIsOpen(!isOpen)}
               type="button"
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray_text hover:text-dark_text hover:bg-gray_border focus:outline-none focus:ring-2 focus:ring-inset focus:ring-dark_text"
+              className={`inline-flex items-center justify-center p-2 rounded-md transition-colors duration-200 ${
+                `${theme.textSoft} hover:${theme.backgroundAlt} focus:ring-${theme.text}`
+              }`}
               aria-controls="mobile-menu"
               aria-expanded="false"
             >
@@ -133,12 +155,14 @@ const Header = () => {
 
       {/* Menú móvil */}
       {isOpen && (
-        <div className="md:hidden" id="mobile-menu">
+        <div className={`md:hidden ${theme.backgroundAlt}`} id="mobile-menu"> {/* Aplicar clases de tema */}
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
             <Link 
               to="/" 
               className={`block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 ${
-                location.pathname === '/' && location.hash === '' ? 'bg-accent text-white' : 'text-gray_text hover:bg-gray_border hover:text-dark_text'
+                location.pathname === '/' && location.hash === '' 
+                  ? 'bg-accent text-white' 
+                  : `${theme.textSoft} hover:${theme.backgroundAlt} hover:${theme.text}`
               }`}
             >
               Estadísticas
@@ -148,14 +172,18 @@ const Header = () => {
                 <Link 
                   to="/user/dashboard" 
                   className={`block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 ${
-                    location.pathname.startsWith('/user') ? 'bg-accent text-white' : 'text-gray_text hover:bg-gray_border hover:text-dark_text'
+                    location.pathname.startsWith('/user') 
+                      ? 'bg-accent text-white' 
+                      : `${theme.textSoft} hover:${theme.backgroundAlt} hover:${theme.text}`
                   }`}
                 >
                   Panel de Usuario
                 </Link>
                 <button 
                   onClick={handleLogout} 
-                  className="block px-3 py-2 rounded-md text-base font-medium w-full text-left text-gray_text hover:bg-gray_border hover:text-dark_text transition-colors duration-200"
+                  className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left transition-colors duration-200 ${
+                    `${theme.textSoft} hover:${theme.backgroundAlt} hover:${theme.text}`
+                  }`}
                 >
                   Cerrar Sesión
                 </button>
@@ -165,7 +193,9 @@ const Header = () => {
                 <Link 
                   to="/signup" 
                   className={`block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 ${
-                    location.pathname === '/signup' ? 'bg-accent text-white' : 'text-gray_text hover:bg-gray_border hover:text-dark_text'
+                    location.pathname === '/signup' 
+                      ? 'bg-accent text-white' 
+                      : `${theme.textSoft} hover:${theme.backgroundAlt} hover:${theme.text}`
                   }`}
                 >
                   Registrarse
@@ -173,7 +203,9 @@ const Header = () => {
                 <Link 
                   to="/login" 
                   className={`block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 ${
-                    location.pathname === '/login' ? 'bg-accent text-white' : 'text-gray_text hover:bg-gray_border hover:text-dark_text'
+                    location.pathname === '/login' 
+                      ? 'bg-accent text-white' 
+                      : `${theme.textSoft} hover:${theme.backgroundAlt} hover:${theme.text}`
                   }`}
                 >
                   Iniciar Sesión

@@ -1,12 +1,14 @@
 import React, { useRef, useState } from 'react';
-import { useAuth } from '../AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useError } from '../context/ErrorContext'; // Importar useError
+import sanitizeInput from '../utils/sanitizeInput'; // Importar la función de sanitización
 
 const Login = () => {
   const emailRef = useRef();
   const passwordRef = useRef();
   const { login } = useAuth();
-  const [error, setError] = useState('');
+  const { showError } = useError(); // Usar el contexto de errores
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -14,12 +16,17 @@ const Login = () => {
     e.preventDefault();
 
     try {
-      setError('');
+      showError(null); // Limpiar errores previos
       setLoading(true);
-      await login(emailRef.current.value, passwordRef.current.value);
+      // Sanitizar las entradas antes de usarlas
+      const sanitizedEmail = sanitizeInput(emailRef.current.value);
+      const sanitizedPassword = sanitizeInput(passwordRef.current.value);
+
+      await login(sanitizedEmail, sanitizedPassword);
       navigate('/user/dashboard'); // Redirigir al panel de usuario
-    } catch {
-      setError('Fallo al iniciar sesión. Revisa tus credenciales.');
+    } catch (err) {
+      showError('Fallo al iniciar sesión. Revisa tus credenciales.');
+      console.error("Error al iniciar sesión:", err);
     }
     setLoading(false);
   }
@@ -32,7 +39,7 @@ const Login = () => {
             Inicia sesión en tu cuenta
           </h2>
         </div>
-        {error && <div className="bg-red-500 text-white p-3 rounded">{error}</div>}
+        {/* El mensaje de error ahora se maneja globalmente */}
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
             <div>

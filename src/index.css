@@ -2,8 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Definición de variables CSS para temas claro y oscuro */
+:root {
+  --light-bg: #F9FAFB;
+  --light-card: #FFFFFF;
+  --dark-text: #1F2937;
+  --light-text: #F9FAFB;
+  --dark-bg: #121212;
+  --dark-card: #1F2937;
+  --accent: #F59E0B;
+  --green-check: #10B981;
+  --gray-border: #E5E7EB;
+  --dark-border: #374151;
+  --gray-text: #6B7280;
+  --blue-link: #3B82F6;
+  --red-error: #EF4444;
+}
+
+/* Estilos base para el cuerpo */
 body {
-  background-color: var(--color-light-bg); /* Usar variable CSS para el fondo claro */
-  color: var(--color-dark-text); /* Usar variable CSS para el texto oscuro */
   font-family: 'Inter', sans-serif;
+  /* Por defecto, usa el tema claro */
+  background-color: var(--light-bg);
+  color: var(--dark-text);
+}
+
+/* Aplicar estilos del modo oscuro cuando la clase 'dark' está en el body */
+body.dark {
+  background-color: var(--dark-bg);
+  color: var(--light-text);
 }

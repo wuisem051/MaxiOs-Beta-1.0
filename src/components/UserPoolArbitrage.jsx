@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db } from '../firebase/firebase';
-import { useAuth } from '../AuthContext'; // Importar useAuth
+import { db } from '../services/firebase';
+import { useAuth } from '../context/AuthContext'; // Importar useAuth
 
 const UserPoolArbitrage = () => {
   const { currentUser } = useAuth(); // Obtener el usuario actual

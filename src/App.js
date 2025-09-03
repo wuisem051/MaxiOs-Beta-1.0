@@ -1,22 +1,28 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react'; // Importar lazy y Suspense
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Home from './pages/Home';
-import Login from './pages/Login';
-import Signup from './pages/Signup'; // Importar Signup
-import UserPanel from './pages/UserPanel';
-import AdminPanel from './pages/AdminPanel';
-import AdminLogin from './pages/AdminLogin'; // Importar AdminLogin
 import ProtectedRoute from './ProtectedRoute';
-import Header from './components/Header';
-import Footer from './components/Footer';
-import { AuthProvider } from './AuthContext';
+import Header from './components/layout/Header';
+import Footer from './components/layout/Footer';
+import { AuthProvider } from './context/AuthContext';
 import './App.css';
-import { db } from './firebase/firebase'; // Importar db desde firebase.js
+import { db } from './services/firebase'; // Importar db desde firebase.js
 import { doc, getDoc } from 'firebase/firestore';
+import { ThemeContext } from './context/ThemeContext'; // Importar ThemeContext
+import { useContext, useEffect } from 'react'; // Importar useContext y useEffect
+
+// Carga perezosa de componentes de página
+const Home = lazy(() => import('./pages/Home'));
+const Login = lazy(() => import('./pages/Login'));
+const Signup = lazy(() => import('./pages/Signup'));
+const UserPanel = lazy(() => import('./pages/UserPanel'));
+const AdminPanel = lazy(() => import('./pages/AdminPanel'));
+const AdminLogin = lazy(() => import('./pages/AdminLogin'));
 
 function App() {
+  const { darkMode, theme } = useContext(ThemeContext); // Usar ThemeContext
+
   // Efecto para cargar el favicon dinámicamente
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchSiteSettings = async () => {
       try {
         const docRef = doc(db, 'settings', 'siteConfig');
@@ -48,37 +54,39 @@ function App() {
 
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <div className="flex flex-col min-h-screen bg-light_bg text-dark_text">
+      <div className={`flex flex-col min-h-screen ${theme.background} ${theme.text}`}> {/* Aplicar clases de tema */}
         <Header />
         <main className="flex-grow">
           <AuthProvider>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
-              {/* Ruta temporal para acceso de prueba a la configuración del usuario */}
-              <Route 
-                path="/test-user-settings/*" 
-                element={
-                  <ProtectedRoute>
-                    <UserPanel />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/user/*" 
-                element={
-                  <ProtectedRoute>
-                    <UserPanel />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route
-                path="/admin/*"
-                element={<AdminPanel />}
-              />
-              <Route path="/admin-login" element={<AdminLogin />} /> {/* Nueva ruta para el login de administrador */}
-            </Routes>
+            <Suspense fallback={<div>Cargando...</div>}> {/* Mostrar un mensaje de carga mientras los componentes se cargan */}
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+                {/* Ruta temporal para acceso de prueba a la configuración del usuario */}
+                <Route 
+                  path="/test-user-settings/*" 
+                  element={
+                    <ProtectedRoute>
+                      <UserPanel />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/user/*" 
+                  element={
+                    <ProtectedRoute>
+                      <UserPanel />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route
+                  path="/admin/*"
+                  element={<AdminPanel />}
+                />
+                <Route path="/admin-login" element={<AdminLogin />} /> {/* Nueva ruta para el login de administrador */}
+              </Routes>
+            </Suspense>
           </AuthProvider>
         </main>
         <Footer />

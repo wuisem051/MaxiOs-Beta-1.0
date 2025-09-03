@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { auth } from './firebase/firebase';
+import { auth } from '../services/firebase';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
@@ -7,7 +7,7 @@ import {
   onAuthStateChanged 
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore'; // Para obtener roles de usuario desde Firestore
-import { db } from './firebase/firebase'; // Importar db desde firebase.js
+import { db } from '../services/firebase'; // Importar db desde firebase.js
 
 const AuthContext = React.createContext();
 

@@ -1,25 +1,32 @@
 import React, { useState } from 'react';
-import { useAuth } from '../AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useError } from '../context/ErrorContext'; // Importar useError
+import sanitizeInput from '../utils/sanitizeInput'; // Importar la función de sanitización
 
 const AdminLogin = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { loginAdmin } = useAuth();
+  const { showError } = useError(); // Usar el contexto de errores
   const navigate = useNavigate();
 
   async function handleSubmit(e) {
     e.preventDefault();
 
     try {
-      setError('');
+      showError(null); // Limpiar errores previos
       setLoading(true);
-      await loginAdmin(email, password);
+      // Sanitizar las entradas antes de usarlas
+      const sanitizedEmail = sanitizeInput(email);
+      const sanitizedPassword = sanitizeInput(password);
+
+      await loginAdmin(sanitizedEmail, sanitizedPassword);
       navigate('/admin'); // Redirigir al panel de administrador
     } catch (err) {
-      setError('Fallo al iniciar sesión como administrador: ' + err.message);
+      showError('Fallo al iniciar sesión como administrador: ' + err.message);
+      console.error("Error al iniciar sesión como administrador:", err);
     }
     setLoading(false);
   }
@@ -28,7 +35,7 @@ const AdminLogin = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-900">
       <div className="bg-gray-800 p-8 rounded-lg shadow-md w-full max-w-md">
         <h2 className="text-2xl font-bold text-white mb-6 text-center">Iniciar Sesión como Administrador</h2>
-        {error && <div className="bg-red-500 text-white p-3 rounded mb-4">{error}</div>}
+        {/* El mensaje de error ahora se maneja globalmente */}
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label htmlFor="email" className="block text-gray-300 text-sm font-medium mb-1">Email</label>
